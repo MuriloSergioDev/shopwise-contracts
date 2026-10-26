@@ -22,7 +22,12 @@ async function api(method, path, body) {
   return res.status === 204 ? null : res.json();
 }
 
-const content = (schema) => ({ content: JSON.stringify(schema), contentType: 'application/json' });
+// Apicurio's JSON compatibility checker only knows drafts 4-7 ("could not determine version" on 2020-12).
+// Our schemas stick to keywords that mean the same in draft 7, so declare that for the check.
+const content = (schema) => ({
+  content: JSON.stringify({ ...schema, $schema: 'http://json-schema.org/draft-07/schema#' }),
+  contentType: 'application/json',
+});
 
 function baseVersion(rel) {
   try {
