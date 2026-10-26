@@ -152,7 +152,7 @@ export interface operations {
         parameters: {
             query: {
                 /** @description Repeated, e.g. skus[]=TEE-MER-BLK-M&skus[]=TEE-MER-BLK-L. */
-                skus: string[];
+                "skus[]": string[];
             };
             header?: never;
             path?: never;
