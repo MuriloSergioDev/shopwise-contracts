@@ -1,0 +1,186 @@
+openapi: 3.1.0
+info:
+  title: cart service
+  version: 0.1.0
+  description: >
+    Guest and customer carts. Called only by the BFFs. A guest cart is reachable by its id alone (the BFF keeps the
+    id in the sealed session). A customer cart needs the owner's access token on every request; a request for it
+    without a matching token is 404, not 403, so ids do not leak. Lines are SKUs + quantities; names and unit prices
+    come from local read models fed by catalog.* and pricing.price-changed, so they are display data only. Totals and
+    coupon validity come from pricing (POST /api/quotes); the cart only stores the coupon code.
+paths:
+  /api/carts:
+    post:
+      operationId: createGuestCart
+      description: Creates an empty guest cart.
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartResponse" }
+  /api/me/cart:
+    get:
+      operationId: getCustomerCart
+      description: The caller's cart, created empty on first access.
+      security: [{ bearer: [] }]
+      responses:
+        "200":
+          description: The customer's cart.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartResponse" }
+        "401": { description: Missing or invalid access token }
+  /api/me/cart/merge:
+    post:
+      operationId: mergeGuestCart
+      description: >
+        Moves a guest cart's lines into the caller's cart and deletes the guest cart. Quantities of the same SKU are
+        added, capped at 99. The guest coupon is kept only when the customer cart has none. Merging an unknown or
+        already merged guest cart is a no-op, so the BFF can retry.
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [guestCartId]
+              properties:
+                guestCartId: { type: string }
+      responses:
+        "200":
+          description: The customer's cart after the merge.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartResponse" }
+        "401": { description: Missing or invalid access token }
+  /api/carts/{cartId}:
+    get:
+      operationId: getCart
+      parameters:
+        - $ref: "#/components/parameters/CartId"
+      security: [{}, { bearer: [] }]
+      responses:
+        "200":
+          description: The cart.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartResponse" }
+        "404": { description: Unknown cart, or a customer cart and the token is missing or not the owner's }
+  /api/carts/{cartId}/items/{sku}:
+    put:
+      operationId: setCartItem
+      description: Adds the SKU or sets its quantity.
+      parameters:
+        - $ref: "#/components/parameters/CartId"
+        - { name: sku, in: path, required: true, schema: { type: string, maxLength: 64 } }
+      security: [{}, { bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity]
+              properties:
+                quantity: { type: integer, minimum: 1, maximum: 99 }
+      responses:
+        "200":
+          description: The updated cart.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartResponse" }
+        "404": { description: Unknown cart, or not the owner's }
+        "422":
+          description: >
+            Validation failed. errors.sku is set when the SKU is unknown or not for sale (inactive variant or
+            unpublished product); errors.items when the cart already has 50 lines.
+    delete:
+      operationId: removeCartItem
+      parameters:
+        - $ref: "#/components/parameters/CartId"
+        - { name: sku, in: path, required: true, schema: { type: string, maxLength: 64 } }
+      security: [{}, { bearer: [] }]
+      responses:
+        "200":
+          description: The updated cart. Removing a SKU that is not in the cart is a no-op.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartResponse" }
+        "404": { description: Unknown cart, or not the owner's }
+  /api/carts/{cartId}/coupon:
+    put:
+      operationId: setCartCoupon
+      description: Stores a coupon code (uppercased). Not validated here; the pricing quote says whether it applies.
+      parameters:
+        - $ref: "#/components/parameters/CartId"
+      security: [{}, { bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, maxLength: 32, pattern: "^[A-Za-z0-9_-]+$" }
+      responses:
+        "200":
+          description: The updated cart.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartResponse" }
+        "404": { description: Unknown cart, or not the owner's }
+        "422": { description: Validation failed }
+    delete:
+      operationId: removeCartCoupon
+      parameters:
+        - $ref: "#/components/parameters/CartId"
+      security: [{}, { bearer: [] }]
+      responses:
+        "200":
+          description: The updated cart.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartResponse" }
+        "404": { description: Unknown cart, or not the owner's }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    CartId:
+      name: cartId
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    CartResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/Cart" }
+    Cart:
+      type: object
+      required: [id, owner, couponCode, lines, updatedAt]
+      properties:
+        id: { type: string }
+        owner: { type: string, enum: [guest, customer] }
+        couponCode: { type: [string, "null"] }
+        lines:
+          type: array
+          description: In the order the SKUs were first added.
+          items: { $ref: "#/components/schemas/CartLine" }
+        updatedAt: { type: string, format: date-time }
+    CartLine:
+      type: object
+      required: [sku, quantity, productSlug, productName, variantName, available, unitAmount, currency]
+      properties:
+        sku: { type: string }
+        quantity: { type: integer }
+        productSlug: { type: [string, "null"] }
+        productName: { type: [string, "null"] }
+        variantName: { type: string }
+        available: { type: boolean, description: False once the variant is inactive or its product unpublished. }
+        unitAmount: { type: [integer, "null"], description: Last known price in minor units; display only. }
+        currency: { type: [string, "null"] }

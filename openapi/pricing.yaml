@@ -1,0 +1,210 @@
+openapi: 3.1.0
+info:
+  title: pricing service
+  version: 0.1.0
+  description: >
+    Prices per SKU and coupons. Called only by the BFFs (and by checkout from P3). Amounts are integers in minor
+    units with an ISO 4217 currency; the store sells in one currency (USD). Prices can only be set for SKUs known
+    from catalog.variant-changed. Price and quote endpoints are public; admin endpoints need an identity access
+    token with the "admin" role.
+paths:
+  /api/prices:
+    get:
+      operationId: listPrices
+      description: Current prices for up to 100 SKUs. SKUs without a price are left out of the result.
+      parameters:
+        - name: skus
+          in: query
+          required: true
+          style: form
+          explode: true
+          schema: { type: array, minItems: 1, maxItems: 100, items: { type: string, maxLength: 64 } }
+          description: Repeated, e.g. skus[]=TEE-MER-BLK-M&skus[]=TEE-MER-BLK-L.
+      responses:
+        "200":
+          description: Prices of the requested SKUs that have one.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Price" } }
+        "422": { description: Invalid query parameters }
+  /api/quotes:
+    post:
+      operationId: createQuote
+      description: >
+        Prices a list of lines and an optional coupon with current prices. Read-only: nothing is stored and no
+        coupon is redeemed. A line whose SKU has no price is returned with null amounts and does not count toward
+        the subtotal. An invalid coupon does not fail the request: it comes back with valid=false and a reason.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lines]
+              properties:
+                lines:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: object
+                    required: [sku, quantity]
+                    properties:
+                      sku: { type: string, maxLength: 64 }
+                      quantity: { type: integer, minimum: 1, maximum: 99 }
+                couponCode: { type: string, maxLength: 32 }
+      responses:
+        "200":
+          description: The priced lines and totals.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Quote" }
+        "422": { description: Validation failed }
+  /api/admin/prices/{sku}:
+    put:
+      operationId: setPrice
+      description: Sets the price of a SKU. Records pricing.price-changed when the amount or currency changed.
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: sku, in: path, required: true, schema: { type: string, maxLength: 64 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, currency]
+              properties:
+                amount: { type: integer, minimum: 0 }
+                currency: { type: string, enum: [USD] }
+      responses:
+        "200":
+          description: Price set.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Price" }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+        "404": { description: SKU not known from catalog }
+        "422": { description: Validation failed }
+  /api/admin/coupons:
+    get:
+      operationId: listCoupons
+      security: [{ bearer: [] }]
+      responses:
+        "200":
+          description: Every coupon, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Coupon" } }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+    post:
+      operationId: createCoupon
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CouponInput" }
+      responses:
+        "201":
+          description: Coupon created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Coupon" }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+        "422": { description: Validation failed (including duplicate code) }
+  /api/admin/coupons/{code}:
+    delete:
+      operationId: deleteCoupon
+      description: Deactivates a coupon. Quotes treat it as unknown afterwards.
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": { description: Deactivated }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+        "404": { description: Unknown coupon }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    Price:
+      type: object
+      required: [sku, amount, currency]
+      properties:
+        sku: { type: string }
+        amount: { type: integer, description: Minor units. }
+        currency: { type: string }
+    CouponInput:
+      type: object
+      required: [code, type, value]
+      properties:
+        code: { type: string, maxLength: 32, pattern: "^[A-Z0-9_-]+$", description: Matched case-insensitively; stored uppercase. }
+        description: { type: string, maxLength: 200 }
+        type: { type: string, enum: [percent, fixed] }
+        value: { type: integer, minimum: 1, description: "Percent (1-100) for percent coupons, minor units for fixed ones." }
+        minSubtotal: { type: integer, minimum: 0, description: Minor units the subtotal must reach. }
+        startsAt: { type: [string, "null"], format: date-time }
+        endsAt: { type: [string, "null"], format: date-time }
+    Coupon:
+      allOf:
+        - $ref: "#/components/schemas/CouponInput"
+        - type: object
+          required: [active, createdAt]
+          properties:
+            active: { type: boolean }
+            createdAt: { type: string, format: date-time }
+    Quote:
+      type: object
+      required: [currency, lines, subtotal, discount, total, coupon]
+      properties:
+        currency: { type: string }
+        lines:
+          type: array
+          items:
+            type: object
+            required: [sku, quantity, unitAmount, lineAmount]
+            properties:
+              sku: { type: string }
+              quantity: { type: integer }
+              unitAmount: { type: [integer, "null"], description: Null when the SKU has no price. }
+              lineAmount: { type: [integer, "null"] }
+        subtotal: { type: integer, description: Sum of priced lines. }
+        discount: { type: integer, description: Never more than the subtotal. }
+        total: { type: integer }
+        coupon:
+          oneOf:
+            - type: "null"
+            - type: object
+              required: [code, valid, reason, description]
+              properties:
+                code: { type: string }
+                valid: { type: boolean }
+                reason:
+                  type: [string, "null"]
+                  enum: [unknown, not_started, expired, min_subtotal_not_met, null]
+                  description: Why the coupon was not applied; null when valid.
+                description: { type: [string, "null"] }

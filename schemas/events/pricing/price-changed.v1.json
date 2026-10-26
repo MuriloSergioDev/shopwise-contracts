@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/events/pricing/price-changed.v1.json",
+  "title": "PriceChanged",
+  "description": "A SKU's price was set or changed. Full state, not a diff: consumers upsert by sku. Keyed by sku.",
+  "type": "object",
+  "required": ["sku", "amount", "currency", "changedAt"],
+  "properties": {
+    "sku": { "type": "string", "maxLength": 64 },
+    "amount": { "type": "integer", "minimum": 0, "description": "Unit price in minor units (cents)." },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "description": "ISO 4217 code." },
+    "changedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

@@ -40,6 +40,14 @@ channels:
         name: catalog.variant-changed
         payload:
           $ref: ./schemas/events/catalog/variant-changed.v1.json
+  pricing.price-changed:
+    address: pricing.price-changed
+    description: "Owner: pricing. Key: sku."
+    messages:
+      priceChanged:
+        name: pricing.price-changed
+        payload:
+          $ref: ./schemas/events/pricing/price-changed.v1.json
 operations:
   publishPinged:
     action: send
@@ -53,3 +61,6 @@ operations:
   publishVariantChanged:
     action: send
     channel: { $ref: "#/channels/catalog.variant-changed" }
+  publishPriceChanged:
+    action: send
+    channel: { $ref: "#/channels/pricing.price-changed" }

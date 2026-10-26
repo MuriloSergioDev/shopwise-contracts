@@ -3,6 +3,9 @@ export type { ProductPublishedV1 as CatalogProductPublishedV1 } from './events/c
 export type { VariantChangedV1 as CatalogVariantChangedV1 } from './events/catalog/variant-changed.v1';
 export type { CustomerRegisteredV1 as IdentityCustomerRegisteredV1 } from './events/identity/customer-registered.v1';
 export type { PingedV1 as PlatformPingedV1 } from './events/platform/pinged.v1';
+export type { PriceChangedV1 as PricingPriceChangedV1 } from './events/pricing/price-changed.v1';
+export type * as CartApi from './openapi/cart';
 export type * as CatalogApi from './openapi/catalog';
 export type * as IdentityApi from './openapi/identity';
 export type * as PingApi from './openapi/ping';
+export type * as PricingApi from './openapi/pricing';

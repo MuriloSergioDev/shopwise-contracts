@@ -1,0 +1,14 @@
+{
+  "id": "01JBCDEFGHJKMNPQRSTVWXYZ31",
+  "type": "pricing.price-changed",
+  "source": "pricing",
+  "time": "2026-10-26T12:00:00Z",
+  "subject": "TEE-MER-BLK-M",
+  "dataschema": "pricing/price-changed.v1",
+  "data": {
+    "sku": "TEE-MER-BLK-M",
+    "amount": 2900,
+    "currency": "USD",
+    "changedAt": "2026-10-26T12:00:00Z"
+  }
+}
