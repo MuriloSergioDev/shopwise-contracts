@@ -17,22 +17,24 @@ export interface ProductPublishedV1 {
       sku: string;
       name: string;
       /**
-       * Option name to value, e.g. {"color": "Black", "size": "M"}.
+       * Variant options sorted by name, e.g. color=Black and size=M. A list, not a map, so an empty set stays a JSON array through the outbox.
        */
       options: {
-        [k: string]: string;
-      };
+        name: string;
+        value: string;
+      }[];
     },
     ...{
       variantId: string;
       sku: string;
       name: string;
       /**
-       * Option name to value, e.g. {"color": "Black", "size": "M"}.
+       * Variant options sorted by name, e.g. color=Black and size=M. A list, not a map, so an empty set stays a JSON array through the outbox.
        */
       options: {
-        [k: string]: string;
-      };
+        name: string;
+        value: string;
+      }[];
     }[]
   ];
   publishedAt: string;

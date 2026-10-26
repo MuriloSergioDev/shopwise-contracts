@@ -21,9 +21,14 @@
           "sku": { "type": "string", "maxLength": 64 },
           "name": { "type": "string", "maxLength": 200 },
           "options": {
-            "type": "object",
-            "description": "Option name to value, e.g. {\"color\": \"Black\", \"size\": \"M\"}.",
-            "additionalProperties": { "type": "string" }
+            "type": "array",
+            "description": "Variant options sorted by name, e.g. color=Black and size=M. A list, not a map, so an empty set stays a JSON array through the outbox.",
+            "items": {
+              "type": "object",
+              "required": ["name", "value"],
+              "properties": { "name": { "type": "string", "maxLength": 50 }, "value": { "type": "string", "maxLength": 50 } },
+              "additionalProperties": false
+            }
           }
         },
         "additionalProperties": false

@@ -11,8 +11,8 @@
     "name": "Merino Crew Tee",
     "categoryId": "01JBCDEFGHJKMNPQRSTVWXYZ22",
     "variants": [
-      { "variantId": "01JBCDEFGHJKMNPQRSTVWXYZ23", "sku": "TEE-MER-BLK-M", "name": "Black / M", "options": { "color": "Black", "size": "M" } },
-      { "variantId": "01JBCDEFGHJKMNPQRSTVWXYZ24", "sku": "TEE-MER-BLK-L", "name": "Black / L", "options": { "color": "Black", "size": "L" } }
+      { "variantId": "01JBCDEFGHJKMNPQRSTVWXYZ23", "sku": "TEE-MER-BLK-M", "name": "Black / M", "options": [{ "name": "color", "value": "Black" }, { "name": "size", "value": "M" }] },
+      { "variantId": "01JBCDEFGHJKMNPQRSTVWXYZ24", "sku": "TEE-MER-BLK-L", "name": "Black / L", "options": [{ "name": "color", "value": "Black" }, { "name": "size", "value": "L" }] }
     ],
     "publishedAt": "2026-10-26T12:00:00Z"
   }
