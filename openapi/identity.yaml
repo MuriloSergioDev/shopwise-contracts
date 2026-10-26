@@ -1,0 +1,158 @@
+openapi: 3.1.0
+info:
+  title: identity service
+  version: 0.1.0
+  description: >
+    Customers, credentials and tokens. Called only by the BFFs. Access tokens are RS256 JWTs
+    (iss "shopwise-identity", sub = customer id, claims email + roles) verified by every service via JWKS.
+    Refresh tokens are opaque and rotate on every use; reusing a rotated one revokes its whole family.
+paths:
+  /api/customers:
+    post:
+      operationId: registerCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, name]
+              properties:
+                email: { type: string, format: email, maxLength: 255 }
+                password: { type: string, minLength: 8, maxLength: 200 }
+                name: { type: string, maxLength: 100 }
+      responses:
+        "201":
+          description: Customer registered and signed in; identity.customer-registered will be published.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/TokenPair" }
+        "422": { description: Validation failed (including email already taken) }
+  /api/tokens:
+    post:
+      operationId: issueToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200":
+          description: Credentials valid.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/TokenPair" }
+        "422": { description: Invalid credentials }
+        "429": { description: Too many attempts }
+  /api/tokens/refresh:
+    post:
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200":
+          description: New pair; the submitted refresh token is now spent.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/TokenPair" }
+        "401": { description: Unknown, expired, revoked or reused refresh token }
+  /api/tokens/revoke:
+    post:
+      operationId: revokeToken
+      description: Sign out. Revokes the refresh token's family; access tokens expire on their own.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "204": { description: Revoked (also returned for unknown tokens) }
+  /api/me:
+    get:
+      operationId: getCurrentCustomer
+      security: [{ bearer: [] }]
+      responses:
+        "200":
+          description: The signed-in customer.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Customer" }
+        "401": { description: Missing or invalid access token }
+  /.well-known/jwks.json:
+    get:
+      operationId: getJwks
+      responses:
+        "200":
+          description: Public keys that verify access tokens (current and recently retired).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [keys]
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      required: [kty, kid, use, alg, n, e]
+                      properties:
+                        kty: { type: string, const: RSA }
+                        kid: { type: string }
+                        use: { type: string, const: sig }
+                        alg: { type: string, const: RS256 }
+                        n: { type: string }
+                        e: { type: string }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    TokenPair:
+      type: object
+      required: [tokenType, accessToken, expiresIn, refreshToken, refreshExpiresIn]
+      properties:
+        tokenType: { type: string, const: Bearer }
+        accessToken: { type: string }
+        expiresIn: { type: integer, description: Access token lifetime in seconds }
+        refreshToken: { type: string }
+        refreshExpiresIn: { type: integer, description: Refresh token lifetime in seconds }
+    Customer:
+      type: object
+      required: [id, email, name, roles, registeredAt]
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        name: { type: string }
+        roles: { type: array, items: { type: string, enum: [customer, admin] } }
+        registeredAt: { type: string, format: date-time }

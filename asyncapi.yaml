@@ -16,7 +16,18 @@ channels:
         name: platform.pinged
         payload:
           $ref: ./schemas/events/platform/pinged.v1.json
+  identity.customer-registered:
+    address: identity.customer-registered
+    description: "Owner: identity."
+    messages:
+      customerRegistered:
+        name: identity.customer-registered
+        payload:
+          $ref: ./schemas/events/identity/customer-registered.v1.json
 operations:
   publishPinged:
     action: send
     channel: { $ref: "#/channels/platform.pinged" }
+  publishCustomerRegistered:
+    action: send
+    channel: { $ref: "#/channels/identity.customer-registered" }

@@ -1,0 +1,14 @@
+{
+  "id": "01JBCDEFGHJKMNPQRSTVWXYZ10",
+  "type": "identity.customer-registered",
+  "source": "identity",
+  "time": "2026-10-26T12:00:00Z",
+  "subject": "01JBCDEFGHJKMNPQRSTVWXYZ11",
+  "dataschema": "identity/customer-registered.v1",
+  "data": {
+    "customerId": "01JBCDEFGHJKMNPQRSTVWXYZ11",
+    "email": "ada@example.com",
+    "name": "Ada Lovelace",
+    "registeredAt": "2026-10-26T12:00:00Z"
+  }
+}

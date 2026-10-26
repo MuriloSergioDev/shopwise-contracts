@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/events/identity/customer-registered.v1.json",
+  "title": "CustomerRegistered",
+  "description": "A customer created an account. Carries the contact data notifications needs for the welcome mail.",
+  "type": "object",
+  "required": ["customerId", "email", "name", "registeredAt"],
+  "properties": {
+    "customerId": { "type": "string" },
+    "email": { "type": "string", "format": "email" },
+    "name": { "type": "string", "maxLength": 100 },
+    "registeredAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}
