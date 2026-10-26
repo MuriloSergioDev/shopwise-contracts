@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/events/catalog/variant-changed.v1.json",
+  "title": "VariantChanged",
+  "description": "A variant was created or changed (including deactivation). Full state, not a diff: consumers upsert by variantId. Keyed by productId.",
+  "type": "object",
+  "required": ["variantId", "productId", "sku", "name", "options", "active", "changedAt"],
+  "properties": {
+    "variantId": { "type": "string" },
+    "productId": { "type": "string" },
+    "sku": { "type": "string", "maxLength": 64 },
+    "name": { "type": "string", "maxLength": 200 },
+    "options": {
+      "type": "object",
+      "description": "Option name to value, e.g. {\"color\": \"Black\", \"size\": \"M\"}.",
+      "additionalProperties": { "type": "string" }
+    },
+    "active": { "type": "boolean", "description": "False once the variant can no longer be sold." },
+    "changedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

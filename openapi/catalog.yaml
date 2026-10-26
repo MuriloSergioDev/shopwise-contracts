@@ -1,0 +1,262 @@
+openapi: 3.1.0
+info:
+  title: catalog service
+  version: 0.1.0
+  description: >
+    Products, variants and categories. Called only by the BFFs. Browse and search endpoints are public and
+    only ever show published products and their active variants. Admin endpoints need an identity access
+    token with the "admin" role. Prices are not here: they belong to pricing, keyed by SKU.
+paths:
+  /api/categories:
+    get:
+      operationId: listCategories
+      responses:
+        "200":
+          description: Every category, ordered by name. Build the tree from parentId.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Category" } }
+  /api/products:
+    get:
+      operationId: searchProducts
+      description: >
+        Browse and full-text search over published products. Filters combine with AND. Facets are counted over
+        the products matching every filter except their own, so a shopper can widen a filter they already set.
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: Full-text query over name and description. }
+        - { name: category, in: query, schema: { type: string }, description: Category slug; includes its child categories. }
+        - name: options
+          in: query
+          style: deepObject
+          explode: true
+          schema: { type: object, additionalProperties: { type: string } }
+          description: Variant option filter, e.g. options[color]=Black&options[size]=M. A product matches when one active variant has the value.
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: perPage, in: query, schema: { type: integer, minimum: 1, maximum: 48, default: 24 } }
+      responses:
+        "200":
+          description: One page of products, best match first when q is set, newest first otherwise.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta, facets]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/ProductSummary" } }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+                  facets: { $ref: "#/components/schemas/Facets" }
+        "422": { description: Invalid query parameters }
+  /api/products/{slug}:
+    get:
+      operationId: showProduct
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: A published product with its active variants.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Product" }
+        "404": { description: No published product with that slug }
+  /api/admin/products:
+    post:
+      operationId: createProduct
+      description: Creates a draft product. Records catalog.variant-changed for every variant.
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, categoryId, variants]
+              properties:
+                name: { type: string, maxLength: 200 }
+                slug: { type: string, maxLength: 200, pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$", description: Defaults to the slugged name. }
+                description: { type: string, maxLength: 5000 }
+                categoryId: { type: string }
+                images: { type: array, maxItems: 10, items: { $ref: "#/components/schemas/Image" } }
+                variants:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    type: object
+                    required: [sku, name]
+                    properties:
+                      sku: { type: string, maxLength: 64 }
+                      name: { type: string, maxLength: 200 }
+                      options: { $ref: "#/components/schemas/Options" }
+      responses:
+        "201":
+          description: Draft created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Product" }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+        "422": { description: Validation failed (including duplicate slug or SKU) }
+  /api/admin/products/{id}/publish:
+    post:
+      operationId: publishProduct
+      description: Makes a draft visible in the storefront. Records catalog.product-published.
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Published.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Product" }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+        "404": { description: Unknown product }
+        "409": { description: Already published, or no active variant }
+  /api/admin/variants/{id}:
+    patch:
+      operationId: updateVariant
+      description: Changes a variant. Records catalog.variant-changed with its full new state.
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name: { type: string, maxLength: 200 }
+                options: { $ref: "#/components/schemas/Options" }
+                active: { type: boolean }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Variant" }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+        "404": { description: Unknown variant }
+        "422": { description: Validation failed }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    Options:
+      type: object
+      description: 'Option name to value, e.g. {"color": "Black", "size": "M"}. Names are lowercase.'
+      additionalProperties: { type: string, maxLength: 50 }
+    Image:
+      type: object
+      required: [url, alt]
+      properties:
+        url: { type: string, format: uri }
+        alt: { type: string, maxLength: 200 }
+    CategoryRef:
+      type: object
+      required: [id, slug, name]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+    Category:
+      type: object
+      required: [id, slug, name, parentId]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        parentId: { type: [string, "null"] }
+    Variant:
+      type: object
+      required: [id, sku, name, options, active]
+      properties:
+        id: { type: string }
+        sku: { type: string }
+        name: { type: string }
+        options: { $ref: "#/components/schemas/Options" }
+        active: { type: boolean }
+    ProductSummary:
+      type: object
+      required: [id, slug, name, category, image]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        category: { $ref: "#/components/schemas/CategoryRef" }
+        image: { oneOf: [{ $ref: "#/components/schemas/Image" }, { type: "null" }] }
+    Product:
+      type: object
+      required: [id, slug, name, description, category, images, variants, status, publishedAt]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string }
+        category: { $ref: "#/components/schemas/CategoryRef" }
+        images: { type: array, items: { $ref: "#/components/schemas/Image" } }
+        variants:
+          type: array
+          description: Public endpoints list active variants only; admin endpoints list all of them.
+          items: { $ref: "#/components/schemas/Variant" }
+        status: { type: string, enum: [draft, published] }
+        publishedAt: { type: [string, "null"], format: date-time }
+    PageMeta:
+      type: object
+      required: [page, perPage, total, lastPage]
+      properties:
+        page: { type: integer }
+        perPage: { type: integer }
+        total: { type: integer }
+        lastPage: { type: integer }
+    Facets:
+      type: object
+      required: [categories, options]
+      properties:
+        categories:
+          type: array
+          items:
+            type: object
+            required: [slug, name, count]
+            properties:
+              slug: { type: string }
+              name: { type: string }
+              count: { type: integer }
+        options:
+          type: array
+          items:
+            type: object
+            required: [name, values]
+            properties:
+              name: { type: string }
+              values:
+                type: array
+                items:
+                  type: object
+                  required: [value, count]
+                  properties:
+                    value: { type: string }
+                    count: { type: integer }

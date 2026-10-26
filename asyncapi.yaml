@@ -24,6 +24,22 @@ channels:
         name: identity.customer-registered
         payload:
           $ref: ./schemas/events/identity/customer-registered.v1.json
+  catalog.product-published:
+    address: catalog.product-published
+    description: "Owner: catalog. Key: productId."
+    messages:
+      productPublished:
+        name: catalog.product-published
+        payload:
+          $ref: ./schemas/events/catalog/product-published.v1.json
+  catalog.variant-changed:
+    address: catalog.variant-changed
+    description: "Owner: catalog. Key: productId (keeps a product's variant changes in order)."
+    messages:
+      variantChanged:
+        name: catalog.variant-changed
+        payload:
+          $ref: ./schemas/events/catalog/variant-changed.v1.json
 operations:
   publishPinged:
     action: send
@@ -31,3 +47,9 @@ operations:
   publishCustomerRegistered:
     action: send
     channel: { $ref: "#/channels/identity.customer-registered" }
+  publishProductPublished:
+    action: send
+    channel: { $ref: "#/channels/catalog.product-published" }
+  publishVariantChanged:
+    action: send
+    channel: { $ref: "#/channels/catalog.variant-changed" }

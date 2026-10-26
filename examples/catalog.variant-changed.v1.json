@@ -1,0 +1,17 @@
+{
+  "id": "01JBCDEFGHJKMNPQRSTVWXYZ25",
+  "type": "catalog.variant-changed",
+  "source": "catalog",
+  "time": "2026-10-26T12:00:00Z",
+  "subject": "01JBCDEFGHJKMNPQRSTVWXYZ21",
+  "dataschema": "catalog/variant-changed.v1",
+  "data": {
+    "variantId": "01JBCDEFGHJKMNPQRSTVWXYZ23",
+    "productId": "01JBCDEFGHJKMNPQRSTVWXYZ21",
+    "sku": "TEE-MER-BLK-M",
+    "name": "Black / M",
+    "options": { "color": "Black", "size": "M" },
+    "active": true,
+    "changedAt": "2026-10-26T12:00:00Z"
+  }
+}

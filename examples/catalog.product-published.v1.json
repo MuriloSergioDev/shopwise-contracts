@@ -1,0 +1,19 @@
+{
+  "id": "01JBCDEFGHJKMNPQRSTVWXYZ20",
+  "type": "catalog.product-published",
+  "source": "catalog",
+  "time": "2026-10-26T12:00:00Z",
+  "subject": "01JBCDEFGHJKMNPQRSTVWXYZ21",
+  "dataschema": "catalog/product-published.v1",
+  "data": {
+    "productId": "01JBCDEFGHJKMNPQRSTVWXYZ21",
+    "slug": "merino-crew-tee",
+    "name": "Merino Crew Tee",
+    "categoryId": "01JBCDEFGHJKMNPQRSTVWXYZ22",
+    "variants": [
+      { "variantId": "01JBCDEFGHJKMNPQRSTVWXYZ23", "sku": "TEE-MER-BLK-M", "name": "Black / M", "options": { "color": "Black", "size": "M" } },
+      { "variantId": "01JBCDEFGHJKMNPQRSTVWXYZ24", "sku": "TEE-MER-BLK-L", "name": "Black / L", "options": { "color": "Black", "size": "L" } }
+    ],
+    "publishedAt": "2026-10-26T12:00:00Z"
+  }
+}
