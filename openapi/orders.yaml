@@ -1,0 +1,187 @@
+openapi: 3.1.0
+info:
+  title: orders service
+  version: 0.1.0
+  description: >
+    Orders created by checkout's orders.place-order command (ADR-0004 in shopwise-platform); never created over HTTP.
+    An order is an immutable record of what was bought at what price; only its fulfilment status changes. Called only
+    by the BFFs: customer endpoints need the owner's access token, admin endpoints a token with the "admin" role.
+    Amounts are integers in minor units with an ISO 4217 currency.
+paths:
+  /api/me/orders:
+    get:
+      operationId: listMyOrders
+      description: The caller's orders, newest first.
+      security: [{ bearer: [] }]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: A page of order summaries.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrderPage" }
+        "401": { description: Missing or invalid access token }
+  /api/me/orders/{orderId}:
+    get:
+      operationId: getMyOrder
+      security: [{ bearer: [] }]
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: The order.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrderResponse" }
+        "401": { description: Missing or invalid access token }
+        "404": { description: Unknown order, or not the caller's }
+  /api/admin/orders:
+    get:
+      operationId: listOrders
+      description: Every order, newest first.
+      security: [{ bearer: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/OrderStatus" }
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: Order number or customer email. }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: A page of order summaries.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrderPage" }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+  /api/admin/orders/{orderId}:
+    get:
+      operationId: getOrder
+      security: [{ bearer: [] }]
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      responses:
+        "200":
+          description: The order.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrderResponse" }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+        "404": { description: Unknown order }
+  /api/admin/orders/{orderId}/shipment:
+    put:
+      operationId: markOrderShipped
+      description: >
+        Marks the order shipped and records orders.order-shipped. Repeating it with the same carrier and tracking
+        number is a no-op; different values on a shipped order are 409.
+      security: [{ bearer: [] }]
+      parameters:
+        - $ref: "#/components/parameters/OrderId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [carrier, trackingNumber]
+              properties:
+                carrier: { type: string, maxLength: 50 }
+                trackingNumber: { type: string, maxLength: 100 }
+      responses:
+        "200":
+          description: The shipped order.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrderResponse" }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+        "404": { description: Unknown order }
+        "409": { description: Already shipped with a different carrier or tracking number }
+        "422": { description: Validation failed }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    OrderId: { name: orderId, in: path, required: true, schema: { type: string } }
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    PerPage: { name: perPage, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+  schemas:
+    OrderStatus:
+      type: string
+      enum: [placed, shipped]
+    OrderSummary:
+      type: object
+      required: [id, number, status, customerId, email, itemCount, currency, total, placedAt]
+      properties:
+        id: { type: string }
+        number: { type: string, description: e.g. SW-000123. }
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        customerId: { type: string }
+        email: { type: string }
+        itemCount: { type: integer, description: Sum of line quantities. }
+        currency: { type: string }
+        total: { type: integer }
+        placedAt: { type: string, format: date-time }
+    Order:
+      allOf:
+        - $ref: "#/components/schemas/OrderSummary"
+        - type: object
+          required: [checkoutId, paymentId, lines, subtotal, discount, couponCode, shippingAddress, shipment]
+          properties:
+            checkoutId: { type: string }
+            paymentId: { type: string }
+            lines:
+              type: array
+              items:
+                type: object
+                required: [sku, productName, variantName, quantity, unitAmount, lineAmount]
+                properties:
+                  sku: { type: string }
+                  productName: { type: [string, "null"] }
+                  variantName: { type: string }
+                  quantity: { type: integer }
+                  unitAmount: { type: integer }
+                  lineAmount: { type: integer }
+            subtotal: { type: integer }
+            discount: { type: integer }
+            couponCode: { type: [string, "null"] }
+            shippingAddress:
+              type: object
+              required: [name, line1, line2, city, region, postalCode, country]
+              properties:
+                name: { type: string }
+                line1: { type: string }
+                line2: { type: [string, "null"] }
+                city: { type: string }
+                region: { type: [string, "null"] }
+                postalCode: { type: string }
+                country: { type: string }
+            shipment:
+              type: [object, "null"]
+              required: [carrier, trackingNumber, shippedAt]
+              properties:
+                carrier: { type: string }
+                trackingNumber: { type: string }
+                shippedAt: { type: string, format: date-time }
+    OrderResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/Order" }
+    OrderPage:
+      type: object
+      required: [data, meta]
+      properties:
+        data: { type: array, items: { $ref: "#/components/schemas/OrderSummary" } }
+        meta:
+          type: object
+          required: [page, perPage, total, lastPage]
+          properties:
+            page: { type: integer }
+            perPage: { type: integer }
+            total: { type: integer }
+            lastPage: { type: integer }

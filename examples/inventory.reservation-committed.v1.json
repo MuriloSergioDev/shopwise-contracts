@@ -1,0 +1,14 @@
+{
+  "id": "01JBCDEFGHJKMNPQRSTVWXYZ58",
+  "type": "inventory.reservation-committed",
+  "source": "inventory",
+  "time": "2026-10-26T12:00:00Z",
+  "subject": "01JBCDEFGHJKMNPQRSTVWXYZ40",
+  "dataschema": "inventory/reservation-committed.v1",
+  "data": {
+    "reservationId": "01JBCDEFGHJKMNPQRSTVWXYZ42",
+    "checkoutId": "01JBCDEFGHJKMNPQRSTVWXYZ40",
+    "lines": [{ "sku": "TEE-MER-BLK-M", "quantity": 2 }],
+    "committedAt": "2026-10-26T12:01:00Z"
+  }
+}

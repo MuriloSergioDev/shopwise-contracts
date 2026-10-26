@@ -1,0 +1,16 @@
+{
+  "id": "01JBCDEFGHJKMNPQRSTVWXYZ69",
+  "type": "cart.cart-checked-out",
+  "source": "cart",
+  "time": "2026-10-26T12:00:00Z",
+  "subject": "01JBCDEFGHJKMNPQRSTVWXYZ41",
+  "dataschema": "cart/cart-checked-out.v1",
+  "data": {
+    "cartId": "01JBCDEFGHJKMNPQRSTVWXYZ41",
+    "customerId": "01JBCDEFGHJKMNPQRSTVWXYZ11",
+    "checkoutId": "01JBCDEFGHJKMNPQRSTVWXYZ40",
+    "orderId": "01JBCDEFGHJKMNPQRSTVWXYZ44",
+    "lines": [{ "sku": "TEE-MER-BLK-M", "quantity": 2 }],
+    "checkedOutAt": "2026-10-26T12:01:25Z"
+  }
+}

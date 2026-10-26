@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/events/checkout/failed.v1.json",
+  "title": "CheckoutFailed",
+  "description": "The saga failed and every compensation is confirmed: no stock held, no money kept, no order. Keyed by checkoutId.",
+  "type": "object",
+  "required": ["checkoutId", "customerId", "cartId", "reason", "failedAt"],
+  "properties": {
+    "checkoutId": { "type": "string", "maxLength": 26 },
+    "customerId": { "type": "string", "maxLength": 26 },
+    "cartId": { "type": "string", "maxLength": 26 },
+    "reason": { "type": "string", "enum": ["out_of_stock", "payment_failed", "reservation_expired", "order_rejected", "timeout"] },
+    "failedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/events/payments/payment-succeeded.v1.json",
+  "title": "PaymentSucceeded",
+  "description": "Reply to payments.request-payment: the PaymentIntent succeeded and the money is captured. Keyed by paymentId.",
+  "type": "object",
+  "required": ["paymentId", "checkoutId", "customerId", "amount", "currency", "stripePaymentIntentId", "succeededAt"],
+  "properties": {
+    "paymentId": { "type": "string", "maxLength": 26 },
+    "checkoutId": { "type": "string", "maxLength": 26 },
+    "customerId": { "type": "string", "maxLength": 26 },
+    "amount": { "type": "integer", "minimum": 0, "description": "Minor units (cents)." },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "description": "ISO 4217 code." },
+    "stripePaymentIntentId": { "type": "string", "maxLength": 255 },
+    "succeededAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

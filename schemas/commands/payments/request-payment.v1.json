@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/commands/payments/request-payment.v1.json",
+  "title": "RequestPayment",
+  "description": "Command from checkout: create and confirm a Stripe PaymentIntent for the checkout (idempotency key checkout-{checkoutId}-pay). One payment per checkoutId. Replies: payments.payment-succeeded or payments.payment-failed, always within 5 minutes. Keyed by checkoutId.",
+  "type": "object",
+  "required": ["checkoutId", "customerId", "amount", "currency", "paymentMethodId", "requestedAt"],
+  "properties": {
+    "checkoutId": { "type": "string", "maxLength": 26 },
+    "customerId": { "type": "string", "maxLength": 26 },
+    "amount": { "type": "integer", "minimum": 1, "description": "Minor units (cents) to charge." },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "description": "ISO 4217 code." },
+    "paymentMethodId": {
+      "type": "string",
+      "maxLength": 255,
+      "pattern": "^pm_",
+      "description": "Stripe payment method from the storefront, e.g. pm_card_visa in test mode."
+    },
+    "requestedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

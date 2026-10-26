@@ -6,7 +6,7 @@ info:
     Prices per SKU and coupons. Called only by the BFFs (and by checkout from P3). Amounts are integers in minor
     units with an ISO 4217 currency; the store sells in one currency (USD). Prices can only be set for SKUs known
     from catalog.variant-changed. Price and quote endpoints are public; admin endpoints need an identity access
-    token with the "admin" role.
+    token with the "admin" role. Coupon redemptions are recorded from checkout.completed (ADR-0004), not over HTTP.
 paths:
   /api/prices:
     get:
@@ -38,6 +38,9 @@ paths:
         Prices a list of lines and an optional coupon with current prices. Read-only: nothing is stored and no
         coupon is redeemed. A line whose SKU has no price is returned with null amounts and does not count toward
         the subtotal. An invalid coupon does not fail the request: it comes back with valid=false and a reason.
+        With the customer's access token the coupon's redemption limits are checked too (already_redeemed,
+        exhausted); checkout always sends it.
+      security: [{}, { bearer: [] }]
       requestBody:
         required: true
         content:
@@ -66,6 +69,7 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/Quote" }
+        "401": { description: Invalid access token (a missing one is fine) }
         "422": { description: Validation failed }
   /api/admin/prices/{sku}:
     put:
@@ -147,6 +151,36 @@ paths:
         "401": { description: Missing or invalid access token }
         "403": { description: Not an admin }
         "404": { description: Unknown coupon }
+  /api/admin/coupons/{code}/redemptions:
+    get:
+      operationId: listCouponRedemptions
+      description: Completed checkouts that used the coupon, newest first.
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: perPage, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+      responses:
+        "200":
+          description: A page of redemptions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Redemption" } }
+                  meta:
+                    type: object
+                    required: [page, perPage, total, lastPage]
+                    properties:
+                      page: { type: integer }
+                      perPage: { type: integer }
+                      total: { type: integer }
+                      lastPage: { type: integer }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+        "404": { description: Unknown coupon }
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, bearerFormat: JWT }
@@ -169,6 +203,8 @@ components:
         minSubtotal: { type: integer, minimum: 0, description: Minor units the subtotal must reach. }
         startsAt: { type: [string, "null"], format: date-time }
         endsAt: { type: [string, "null"], format: date-time }
+        maxRedemptions: { type: [integer, "null"], minimum: 1, description: Total uses across customers; null = unlimited. }
+        maxRedemptionsPerCustomer: { type: [integer, "null"], minimum: 1, description: Uses per customer; null = unlimited. }
     Coupon:
       allOf:
         - $ref: "#/components/schemas/CouponInput"
@@ -177,6 +213,17 @@ components:
           properties:
             active: { type: boolean }
             createdAt: { type: string, format: date-time }
+            redemptionCount: { type: integer, description: Completed checkouts that used it. }
+    Redemption:
+      type: object
+      required: [checkoutId, orderId, customerId, discount, currency, redeemedAt]
+      properties:
+        checkoutId: { type: string }
+        orderId: { type: string }
+        customerId: { type: string }
+        discount: { type: integer, description: Minor units taken off. }
+        currency: { type: string }
+        redeemedAt: { type: string, format: date-time }
     Quote:
       type: object
       required: [currency, lines, subtotal, discount, total, coupon]
@@ -205,6 +252,6 @@ components:
                 valid: { type: boolean }
                 reason:
                   type: [string, "null"]
-                  enum: [unknown, not_started, expired, min_subtotal_not_met, null]
+                  enum: [unknown, not_started, expired, min_subtotal_not_met, already_redeemed, exhausted, null]
                   description: Why the coupon was not applied; null when valid.
                 description: { type: [string, "null"] }

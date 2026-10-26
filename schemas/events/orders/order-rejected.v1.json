@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/events/orders/order-rejected.v1.json",
+  "title": "OrderRejected",
+  "description": "Reply to orders.place-order: no order was created. Checkout refunds and releases. Keyed by checkoutId.",
+  "type": "object",
+  "required": ["checkoutId", "reason", "message", "rejectedAt"],
+  "properties": {
+    "checkoutId": { "type": "string", "maxLength": 26 },
+    "reason": {
+      "type": "string",
+      "enum": ["invalid", "duplicate_conflict"],
+      "description": "invalid: the command failed validation; duplicate_conflict: the checkout already has an order with different contents."
+    },
+    "message": { "type": ["string", "null"], "maxLength": 500 },
+    "rejectedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

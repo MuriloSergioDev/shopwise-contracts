@@ -1,0 +1,21 @@
+{
+  "id": "01JBCDEFGHJKMNPQRSTVWXYZ67",
+  "type": "checkout.completed",
+  "source": "checkout",
+  "time": "2026-10-26T12:00:00Z",
+  "subject": "01JBCDEFGHJKMNPQRSTVWXYZ40",
+  "dataschema": "checkout/completed.v1",
+  "data": {
+    "checkoutId": "01JBCDEFGHJKMNPQRSTVWXYZ40",
+    "customerId": "01JBCDEFGHJKMNPQRSTVWXYZ11",
+    "cartId": "01JBCDEFGHJKMNPQRSTVWXYZ41",
+    "orderId": "01JBCDEFGHJKMNPQRSTVWXYZ44",
+    "paymentId": "01JBCDEFGHJKMNPQRSTVWXYZ43",
+    "currency": "USD",
+    "subtotal": 5800,
+    "discount": 580,
+    "total": 5220,
+    "couponCode": "WELCOME10",
+    "completedAt": "2026-10-26T12:01:30Z"
+  }
+}

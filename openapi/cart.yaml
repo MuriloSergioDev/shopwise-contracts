@@ -7,7 +7,10 @@ info:
     id in the sealed session). A customer cart needs the owner's access token on every request; a request for it
     without a matching token is 404, not 403, so ids do not leak. Lines are SKUs + quantities; names and unit prices
     come from local read models fed by catalog.* and pricing.price-changed, so they are display data only. Totals and
-    coupon validity come from pricing (POST /api/quotes); the cart only stores the coupon code.
+    coupon validity come from pricing (POST /api/quotes); the cart only stores the coupon code. Checkout (ADR-0004)
+    takes a snapshot with the customer's token and, once the order is placed, closes the cart through an /internal
+    route that only services inside the cluster can reach (no JWT; the BFFs never proxy /internal). A closed cart is
+    404 everywhere and GET /api/me/cart creates a fresh one.
 paths:
   /api/carts:
     post:
@@ -145,6 +148,61 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/CartResponse" }
         "404": { description: Unknown cart, or not the owner's }
+  /api/carts/{cartId}/snapshot:
+    get:
+      operationId: getCartSnapshot
+      description: >
+        Checkout's copy of a customer cart: SKUs, quantities, display names, coupon and version. Read-only. Guest
+        carts are 404 (guests cannot check out).
+      parameters:
+        - $ref: "#/components/parameters/CartId"
+      security: [{ bearer: [] }]
+      responses:
+        "200":
+          description: The snapshot.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/CartSnapshot" }
+        "401": { description: Missing or invalid access token }
+        "404": { description: Unknown or closed cart, a guest cart, or not the caller's }
+  /internal/carts/{cartId}/checked-out:
+    post:
+      operationId: markCartCheckedOut
+      description: >
+        Called by checkout after the order is placed. Closes the cart and records cart.cart-checked-out with the
+        given lines (the snapshot's). Idempotent per checkoutId: repeating it returns 200 without a second event.
+        Lines added after the snapshot are dropped with the cart.
+      parameters:
+        - $ref: "#/components/parameters/CartId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [checkoutId, orderId, lines]
+              properties:
+                checkoutId: { type: string }
+                orderId: { type: string }
+                lines:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: object
+                    required: [sku, quantity]
+                    properties:
+                      sku: { type: string, maxLength: 64 }
+                      quantity: { type: integer, minimum: 1, maximum: 99 }
+      responses:
+        "200": { description: Closed, now or by an earlier call with the same checkoutId }
+        "404": { description: Unknown cart }
+        "409": { description: Already closed by a different checkout }
+        "422": { description: Validation failed }
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, bearerFormat: JWT }
@@ -172,6 +230,27 @@ components:
           description: In the order the SKUs were first added.
           items: { $ref: "#/components/schemas/CartLine" }
         updatedAt: { type: string, format: date-time }
+    CartSnapshot:
+      type: object
+      required: [cartId, customerId, version, couponCode, lines, takenAt]
+      properties:
+        cartId: { type: string }
+        customerId: { type: string }
+        version: { type: integer, description: Increases on every change to the cart. }
+        couponCode: { type: [string, "null"] }
+        lines:
+          type: array
+          description: In the order the SKUs were first added. Empty when the cart is empty.
+          items:
+            type: object
+            required: [sku, quantity, productName, variantName, available]
+            properties:
+              sku: { type: string }
+              quantity: { type: integer }
+              productName: { type: [string, "null"] }
+              variantName: { type: string }
+              available: { type: boolean, description: False once the variant is inactive or its product unpublished. }
+        takenAt: { type: string, format: date-time }
     CartLine:
       type: object
       required: [sku, quantity, productSlug, productName, variantName, available, unitAmount, currency]

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/events/inventory/stock-level-changed.v1.json",
+  "title": "StockLevelChanged",
+  "description": "A SKU's stock changed (admin set on-hand, reservation, commit, release). Full state, not a diff: consumers upsert by sku and keep the newest changedAt. Keyed by sku.",
+  "type": "object",
+  "required": ["sku", "onHand", "reserved", "available", "changedAt"],
+  "properties": {
+    "sku": { "type": "string", "maxLength": 64 },
+    "onHand": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Physically in stock, including reserved units not yet committed."
+    },
+    "reserved": { "type": "integer", "minimum": 0, "description": "Held by open reservations." },
+    "available": { "type": "integer", "minimum": 0, "description": "onHand - reserved: what can still be reserved." },
+    "changedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

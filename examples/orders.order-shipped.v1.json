@@ -1,0 +1,17 @@
+{
+  "id": "01JBCDEFGHJKMNPQRSTVWXYZ66",
+  "type": "orders.order-shipped",
+  "source": "orders",
+  "time": "2026-10-26T12:00:00Z",
+  "subject": "01JBCDEFGHJKMNPQRSTVWXYZ44",
+  "dataschema": "orders/order-shipped.v1",
+  "data": {
+    "orderId": "01JBCDEFGHJKMNPQRSTVWXYZ44",
+    "number": "SW-000123",
+    "customerId": "01JBCDEFGHJKMNPQRSTVWXYZ11",
+    "email": "ada@example.com",
+    "carrier": "UPS",
+    "trackingNumber": "1Z999AA10123456784",
+    "shippedAt": "2026-10-27T09:00:00Z"
+  }
+}

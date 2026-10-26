@@ -2,7 +2,9 @@ asyncapi: 3.0.0
 info:
   title: Shopwise events
   version: 0.1.0
-  description: Every Kafka topic, its owner and its payload schema. Envelope per ADR-0002.
+  description: >
+    Every Kafka topic, its owner and its payload schema. Envelope per ADR-0002. Event topics are owned by their
+    producer; command topics (checkout saga, ADR-0004) by their receiver, and their schemas live in schemas/commands.
 servers:
   local:
     host: shopwise-kafka-bootstrap:9092
@@ -48,6 +50,166 @@ channels:
         name: pricing.price-changed
         payload:
           $ref: ./schemas/events/pricing/price-changed.v1.json
+  inventory.reserve-stock:
+    address: inventory.reserve-stock
+    description: "Command. Sender: checkout. Owner/receiver: inventory. Key: checkoutId. Replies: inventory.stock-reserved, inventory.reservation-failed."
+    messages:
+      reserveStock:
+        name: inventory.reserve-stock
+        payload:
+          $ref: ./schemas/commands/inventory/reserve-stock.v1.json
+  inventory.commit-reservation:
+    address: inventory.commit-reservation
+    description: "Command. Sender: checkout. Owner/receiver: inventory. Key: checkoutId. Replies: inventory.reservation-committed, inventory.reservation-released."
+    messages:
+      commitReservation:
+        name: inventory.commit-reservation
+        payload:
+          $ref: ./schemas/commands/inventory/commit-reservation.v1.json
+  inventory.release-reservation:
+    address: inventory.release-reservation
+    description: "Command (compensation). Sender: checkout. Owner/receiver: inventory. Key: checkoutId. Reply: inventory.reservation-released."
+    messages:
+      releaseReservation:
+        name: inventory.release-reservation
+        payload:
+          $ref: ./schemas/commands/inventory/release-reservation.v1.json
+  inventory.stock-reserved:
+    address: inventory.stock-reserved
+    description: "Owner: inventory. Key: checkoutId. Reply to inventory.reserve-stock."
+    messages:
+      stockReserved:
+        name: inventory.stock-reserved
+        payload:
+          $ref: ./schemas/events/inventory/stock-reserved.v1.json
+  inventory.reservation-failed:
+    address: inventory.reservation-failed
+    description: "Owner: inventory. Key: checkoutId. Reply to inventory.reserve-stock."
+    messages:
+      reservationFailed:
+        name: inventory.reservation-failed
+        payload:
+          $ref: ./schemas/events/inventory/reservation-failed.v1.json
+  inventory.reservation-committed:
+    address: inventory.reservation-committed
+    description: "Owner: inventory. Key: checkoutId. Reply to inventory.commit-reservation."
+    messages:
+      reservationCommitted:
+        name: inventory.reservation-committed
+        payload:
+          $ref: ./schemas/events/inventory/reservation-committed.v1.json
+  inventory.reservation-released:
+    address: inventory.reservation-released
+    description: "Owner: inventory. Key: checkoutId. Reply to release-reservation/commit-reservation, or a TTL expiry."
+    messages:
+      reservationReleased:
+        name: inventory.reservation-released
+        payload:
+          $ref: ./schemas/events/inventory/reservation-released.v1.json
+  inventory.stock-level-changed:
+    address: inventory.stock-level-changed
+    description: "Owner: inventory. Key: sku."
+    messages:
+      stockLevelChanged:
+        name: inventory.stock-level-changed
+        payload:
+          $ref: ./schemas/events/inventory/stock-level-changed.v1.json
+  payments.request-payment:
+    address: payments.request-payment
+    description: "Command. Sender: checkout. Owner/receiver: payments. Key: checkoutId. Replies: payments.payment-succeeded, payments.payment-failed."
+    messages:
+      requestPayment:
+        name: payments.request-payment
+        payload:
+          $ref: ./schemas/commands/payments/request-payment.v1.json
+  payments.refund-payment:
+    address: payments.refund-payment
+    description: "Command (compensation). Sender: checkout. Owner/receiver: payments. Key: checkoutId. Replies: payments.refunded, payments.payment-failed."
+    messages:
+      refundPayment:
+        name: payments.refund-payment
+        payload:
+          $ref: ./schemas/commands/payments/refund-payment.v1.json
+  payments.payment-succeeded:
+    address: payments.payment-succeeded
+    description: "Owner: payments. Key: paymentId. Reply to payments.request-payment."
+    messages:
+      paymentSucceeded:
+        name: payments.payment-succeeded
+        payload:
+          $ref: ./schemas/events/payments/payment-succeeded.v1.json
+  payments.payment-failed:
+    address: payments.payment-failed
+    description: "Owner: payments. Key: paymentId (checkoutId when no payment exists). Reply to request-payment/refund-payment."
+    messages:
+      paymentFailed:
+        name: payments.payment-failed
+        payload:
+          $ref: ./schemas/events/payments/payment-failed.v1.json
+  payments.refunded:
+    address: payments.refunded
+    description: "Owner: payments. Key: paymentId. Reply to payments.refund-payment; also consumed by notifications."
+    messages:
+      refunded:
+        name: payments.refunded
+        payload:
+          $ref: ./schemas/events/payments/refunded.v1.json
+  orders.place-order:
+    address: orders.place-order
+    description: "Command. Sender: checkout. Owner/receiver: orders. Key: checkoutId. Replies: orders.order-placed, orders.order-rejected."
+    messages:
+      placeOrder:
+        name: orders.place-order
+        payload:
+          $ref: ./schemas/commands/orders/place-order.v1.json
+  orders.order-placed:
+    address: orders.order-placed
+    description: "Owner: orders. Key: orderId. Reply to orders.place-order; also consumed by notifications."
+    messages:
+      orderPlaced:
+        name: orders.order-placed
+        payload:
+          $ref: ./schemas/events/orders/order-placed.v1.json
+  orders.order-rejected:
+    address: orders.order-rejected
+    description: "Owner: orders. Key: checkoutId. Reply to orders.place-order."
+    messages:
+      orderRejected:
+        name: orders.order-rejected
+        payload:
+          $ref: ./schemas/events/orders/order-rejected.v1.json
+  orders.order-shipped:
+    address: orders.order-shipped
+    description: "Owner: orders. Key: orderId."
+    messages:
+      orderShipped:
+        name: orders.order-shipped
+        payload:
+          $ref: ./schemas/events/orders/order-shipped.v1.json
+  checkout.completed:
+    address: checkout.completed
+    description: "Owner: checkout. Key: checkoutId. Consumed by pricing (coupon redemption)."
+    messages:
+      checkoutCompleted:
+        name: checkout.completed
+        payload:
+          $ref: ./schemas/events/checkout/completed.v1.json
+  checkout.failed:
+    address: checkout.failed
+    description: "Owner: checkout. Key: checkoutId."
+    messages:
+      checkoutFailed:
+        name: checkout.failed
+        payload:
+          $ref: ./schemas/events/checkout/failed.v1.json
+  cart.cart-checked-out:
+    address: cart.cart-checked-out
+    description: "Owner: cart. Key: cartId."
+    messages:
+      cartCheckedOut:
+        name: cart.cart-checked-out
+        payload:
+          $ref: ./schemas/events/cart/cart-checked-out.v1.json
 operations:
   publishPinged:
     action: send
@@ -64,3 +226,63 @@ operations:
   publishPriceChanged:
     action: send
     channel: { $ref: "#/channels/pricing.price-changed" }
+  sendReserveStock:
+    action: send
+    channel: { $ref: "#/channels/inventory.reserve-stock" }
+  sendCommitReservation:
+    action: send
+    channel: { $ref: "#/channels/inventory.commit-reservation" }
+  sendReleaseReservation:
+    action: send
+    channel: { $ref: "#/channels/inventory.release-reservation" }
+  publishStockReserved:
+    action: send
+    channel: { $ref: "#/channels/inventory.stock-reserved" }
+  publishReservationFailed:
+    action: send
+    channel: { $ref: "#/channels/inventory.reservation-failed" }
+  publishReservationCommitted:
+    action: send
+    channel: { $ref: "#/channels/inventory.reservation-committed" }
+  publishReservationReleased:
+    action: send
+    channel: { $ref: "#/channels/inventory.reservation-released" }
+  publishStockLevelChanged:
+    action: send
+    channel: { $ref: "#/channels/inventory.stock-level-changed" }
+  sendRequestPayment:
+    action: send
+    channel: { $ref: "#/channels/payments.request-payment" }
+  sendRefundPayment:
+    action: send
+    channel: { $ref: "#/channels/payments.refund-payment" }
+  publishPaymentSucceeded:
+    action: send
+    channel: { $ref: "#/channels/payments.payment-succeeded" }
+  publishPaymentFailed:
+    action: send
+    channel: { $ref: "#/channels/payments.payment-failed" }
+  publishRefunded:
+    action: send
+    channel: { $ref: "#/channels/payments.refunded" }
+  sendPlaceOrder:
+    action: send
+    channel: { $ref: "#/channels/orders.place-order" }
+  publishOrderPlaced:
+    action: send
+    channel: { $ref: "#/channels/orders.order-placed" }
+  publishOrderRejected:
+    action: send
+    channel: { $ref: "#/channels/orders.order-rejected" }
+  publishOrderShipped:
+    action: send
+    channel: { $ref: "#/channels/orders.order-shipped" }
+  publishCheckoutCompleted:
+    action: send
+    channel: { $ref: "#/channels/checkout.completed" }
+  publishCheckoutFailed:
+    action: send
+    channel: { $ref: "#/channels/checkout.failed" }
+  publishCartCheckedOut:
+    action: send
+    channel: { $ref: "#/channels/cart.cart-checked-out" }

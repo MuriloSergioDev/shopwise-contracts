@@ -1,0 +1,18 @@
+{
+  "id": "01JBCDEFGHJKMNPQRSTVWXYZ63",
+  "type": "payments.refunded",
+  "source": "payments",
+  "time": "2026-10-26T12:00:00Z",
+  "subject": "01JBCDEFGHJKMNPQRSTVWXYZ43",
+  "dataschema": "payments/refunded.v1",
+  "data": {
+    "paymentId": "01JBCDEFGHJKMNPQRSTVWXYZ43",
+    "checkoutId": "01JBCDEFGHJKMNPQRSTVWXYZ40",
+    "customerId": "01JBCDEFGHJKMNPQRSTVWXYZ11",
+    "amount": 5220,
+    "currency": "USD",
+    "reason": "order_rejected",
+    "stripeRefundId": "re_3QabcDEFghiJKL0a1b2c3d4e",
+    "refundedAt": "2026-10-26T12:00:00Z"
+  }
+}

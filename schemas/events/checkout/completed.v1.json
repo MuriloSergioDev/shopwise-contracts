@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/events/checkout/completed.v1.json",
+  "title": "CheckoutCompleted",
+  "description": "The saga finished: stock committed, payment captured, order placed, cart closed. Pricing records the coupon redemption from it. Keyed by checkoutId.",
+  "type": "object",
+  "required": [
+    "checkoutId",
+    "customerId",
+    "cartId",
+    "orderId",
+    "paymentId",
+    "currency",
+    "subtotal",
+    "discount",
+    "total",
+    "couponCode",
+    "completedAt"
+  ],
+  "properties": {
+    "checkoutId": { "type": "string", "maxLength": 26 },
+    "customerId": { "type": "string", "maxLength": 26 },
+    "cartId": { "type": "string", "maxLength": 26 },
+    "orderId": { "type": "string", "maxLength": 26 },
+    "paymentId": { "type": "string", "maxLength": 26 },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "description": "ISO 4217 code." },
+    "subtotal": { "type": "integer", "minimum": 0, "description": "Minor units (cents)." },
+    "discount": { "type": "integer", "minimum": 0, "description": "Minor units; never more than the subtotal." },
+    "total": { "type": "integer", "minimum": 0, "description": "Minor units (cents)." },
+    "couponCode": { "type": ["string", "null"], "maxLength": 32 },
+    "completedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

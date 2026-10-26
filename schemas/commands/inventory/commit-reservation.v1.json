@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/commands/inventory/commit-reservation.v1.json",
+  "title": "CommitReservation",
+  "description": "Command from checkout after the payment succeeded: turn the held stock into sold stock so it no longer expires. Replies: inventory.reservation-committed, or inventory.reservation-released (reason expired) when the reservation was already gone. Keyed by checkoutId.",
+  "type": "object",
+  "required": ["checkoutId", "reservationId", "requestedAt"],
+  "properties": {
+    "checkoutId": { "type": "string", "maxLength": 26 },
+    "reservationId": { "type": "string", "maxLength": 26 },
+    "requestedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

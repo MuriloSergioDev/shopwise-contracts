@@ -1,0 +1,15 @@
+{
+  "id": "01JBCDEFGHJKMNPQRSTVWXYZ56",
+  "type": "inventory.stock-reserved",
+  "source": "inventory",
+  "time": "2026-10-26T12:00:00Z",
+  "subject": "01JBCDEFGHJKMNPQRSTVWXYZ40",
+  "dataschema": "inventory/stock-reserved.v1",
+  "data": {
+    "reservationId": "01JBCDEFGHJKMNPQRSTVWXYZ42",
+    "checkoutId": "01JBCDEFGHJKMNPQRSTVWXYZ40",
+    "lines": [{ "sku": "TEE-MER-BLK-M", "quantity": 2 }],
+    "expiresAt": "2026-10-26T12:15:00Z",
+    "reservedAt": "2026-10-26T12:00:00Z"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/events/inventory/reservation-released.v1.json",
+  "title": "ReservationReleased",
+  "description": "A reservation's stock went back to available: on request (inventory.release-reservation) or because its TTL passed. Also the reply to commit-reservation when the reservation had already expired. Keyed by checkoutId.",
+  "type": "object",
+  "required": ["reservationId", "checkoutId", "reason", "lines", "releasedAt"],
+  "properties": {
+    "reservationId": { "type": ["string", "null"], "maxLength": 26, "description": "Null when the checkout never had a reservation." },
+    "checkoutId": { "type": "string", "maxLength": 26 },
+    "reason": { "type": "string", "enum": ["requested", "expired"] },
+    "lines": {
+      "type": "array",
+      "description": "Stock returned by this release; empty when there was nothing left to release.",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "required": ["sku", "quantity"],
+        "properties": { "sku": { "type": "string", "maxLength": 64 }, "quantity": { "type": "integer", "minimum": 1, "maximum": 99 } },
+        "additionalProperties": false
+      }
+    },
+    "releasedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

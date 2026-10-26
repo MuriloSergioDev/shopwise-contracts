@@ -1,0 +1,40 @@
+{
+  "id": "01JBCDEFGHJKMNPQRSTVWXYZ64",
+  "type": "orders.order-placed",
+  "source": "orders",
+  "time": "2026-10-26T12:00:00Z",
+  "subject": "01JBCDEFGHJKMNPQRSTVWXYZ44",
+  "dataschema": "orders/order-placed.v1",
+  "data": {
+    "orderId": "01JBCDEFGHJKMNPQRSTVWXYZ44",
+    "number": "SW-000123",
+    "checkoutId": "01JBCDEFGHJKMNPQRSTVWXYZ40",
+    "customerId": "01JBCDEFGHJKMNPQRSTVWXYZ11",
+    "email": "ada@example.com",
+    "lines": [
+      {
+        "sku": "TEE-MER-BLK-M",
+        "productName": "Merino Tee",
+        "variantName": "Black / M",
+        "quantity": 2,
+        "unitAmount": 2900,
+        "lineAmount": 5800
+      }
+    ],
+    "currency": "USD",
+    "subtotal": 5800,
+    "discount": 580,
+    "total": 5220,
+    "couponCode": "WELCOME10",
+    "shippingAddress": {
+      "name": "Ada Lovelace",
+      "line1": "12 St James's Square",
+      "line2": null,
+      "city": "London",
+      "region": null,
+      "postalCode": "SW1Y 4JH",
+      "country": "GB"
+    },
+    "placedAt": "2026-10-26T12:00:00Z"
+  }
+}

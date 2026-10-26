@@ -26,7 +26,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Prices a list of lines and an optional coupon with current prices. Read-only: nothing is stored and no coupon is redeemed. A line whose SKU has no price is returned with null amounts and does not count toward the subtotal. An invalid coupon does not fail the request: it comes back with valid=false and a reason. */
+        /** @description Prices a list of lines and an optional coupon with current prices. Read-only: nothing is stored and no coupon is redeemed. A line whose SKU has no price is returned with null amounts and does not count toward the subtotal. An invalid coupon does not fail the request: it comes back with valid=false and a reason. With the customer's access token the coupon's redemption limits are checked too (already_redeemed, exhausted); checkout always sends it. */
         post: operations["createQuote"];
         delete?: never;
         options?: never;
@@ -84,6 +84,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/coupons/{code}/redemptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Completed checkouts that used the coupon, newest first. */
+        get: operations["listCouponRedemptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -108,11 +125,27 @@ export interface components {
             startsAt?: string | null;
             /** Format: date-time */
             endsAt?: string | null;
+            /** @description Total uses across customers; null = unlimited. */
+            maxRedemptions?: number | null;
+            /** @description Uses per customer; null = unlimited. */
+            maxRedemptionsPerCustomer?: number | null;
         };
         Coupon: components["schemas"]["CouponInput"] & {
             active: boolean;
             /** Format: date-time */
             createdAt: string;
+            /** @description Completed checkouts that used it. */
+            redemptionCount?: number;
+        };
+        Redemption: {
+            checkoutId: string;
+            orderId: string;
+            customerId: string;
+            /** @description Minor units taken off. */
+            discount: number;
+            currency: string;
+            /** Format: date-time */
+            redeemedAt: string;
         };
         Quote: {
             currency: string;
@@ -135,7 +168,7 @@ export interface components {
                  * @description Why the coupon was not applied; null when valid.
                  * @enum {string|null}
                  */
-                reason: "unknown" | "not_started" | "expired" | "min_subtotal_not_met" | null;
+                reason: "unknown" | "not_started" | "expired" | "min_subtotal_not_met" | "already_redeemed" | "exhausted" | null;
                 description: string | null;
             };
         };
@@ -209,6 +242,13 @@ export interface operations {
                         data: components["schemas"]["Quote"];
                     };
                 };
+            };
+            /** @description Invalid access token (a missing one is fine) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation failed */
             422: {
@@ -379,6 +419,60 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Missing or invalid access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown coupon */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listCouponRedemptions: {
+        parameters: {
+            query?: {
+                page?: number;
+                perPage?: number;
+            };
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of redemptions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Redemption"][];
+                        meta: {
+                            page: number;
+                            perPage: number;
+                            total: number;
+                            lastPage: number;
+                        };
+                    };
+                };
             };
             /** @description Missing or invalid access token */
             401: {

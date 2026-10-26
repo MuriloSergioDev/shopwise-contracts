@@ -1,0 +1,13 @@
+{
+  "id": "01JBCDEFGHJKMNPQRSTVWXYZ51",
+  "type": "inventory.commit-reservation",
+  "source": "checkout",
+  "time": "2026-10-26T12:00:00Z",
+  "subject": "01JBCDEFGHJKMNPQRSTVWXYZ40",
+  "dataschema": "inventory/commit-reservation.v1",
+  "data": {
+    "checkoutId": "01JBCDEFGHJKMNPQRSTVWXYZ40",
+    "reservationId": "01JBCDEFGHJKMNPQRSTVWXYZ42",
+    "requestedAt": "2026-10-26T12:00:00Z"
+  }
+}

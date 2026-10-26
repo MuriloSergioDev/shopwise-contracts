@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/commands/payments/refund-payment.v1.json",
+  "title": "RefundPayment",
+  "description": "Compensation from checkout: undo the checkout's payment. Refunds it when it succeeded (idempotency key checkout-{checkoutId}-refund), cancels the PaymentIntent when it is not final, otherwise re-publishes the failure. Replies: payments.refunded or payments.payment-failed. Keyed by checkoutId.",
+  "type": "object",
+  "required": ["checkoutId", "reason", "requestedAt"],
+  "properties": {
+    "checkoutId": { "type": "string", "maxLength": 26 },
+    "reason": {
+      "type": "string",
+      "enum": ["reservation_expired", "order_rejected", "timeout"],
+      "description": "Why the checkout is being undone."
+    },
+    "requestedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

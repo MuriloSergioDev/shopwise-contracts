@@ -1,0 +1,167 @@
+openapi: 3.1.0
+info:
+  title: checkout service
+  version: 0.1.0
+  description: >
+    Runs the checkout saga (ADR-0004 in shopwise-platform). Called only by the storefront BFF, always with the
+    customer's access token: guests cannot check out. Starting a checkout takes the cart snapshot and the pricing
+    quote synchronously, so a bad cart or coupon is a 422 and nothing starts; the rest (reserve stock, pay, commit
+    stock, place order, close cart) runs asynchronously and the BFF polls the checkout. Amounts are integers in minor
+    units with an ISO 4217 currency.
+paths:
+  /api/checkouts:
+    post:
+      operationId: startCheckout
+      security: [{ bearer: [] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 8, maxLength: 64 }
+          description: One value per checkout attempt (the BFF sends a UUID). Repeating it returns the same checkout.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cartId, paymentMethodId, shippingAddress]
+              properties:
+                cartId: { type: string, description: The caller's customer cart. }
+                paymentMethodId:
+                  type: string
+                  maxLength: 255
+                  pattern: "^pm_"
+                  description: Stripe payment method from Stripe Elements, or a test one such as pm_card_visa.
+                shippingAddress: { $ref: "#/components/schemas/Address" }
+      responses:
+        "200":
+          description: A checkout with this Idempotency-Key already exists; returned as is.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckoutResponse" }
+        "202":
+          description: Snapshot and quote taken; the saga has started (status reserving).
+          headers:
+            Location: { schema: { type: string }, description: "/api/checkouts/{checkoutId}" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckoutResponse" }
+        "401": { description: Missing or invalid access token }
+        "404": { description: Unknown cart, or not the caller's }
+        "409": { description: The cart already has a checkout in progress under another Idempotency-Key }
+        "422":
+          description: >
+            Validation failed, or the cart cannot be checked out: errors.cartId when it is empty or has lines that are
+            no longer for sale, errors.lines when a line has no price, errors.couponCode with the pricing reason when
+            the coupon does not apply.
+  /api/checkouts/{checkoutId}:
+    get:
+      operationId: getCheckout
+      description: The checkout and where its saga is. Poll until status is completed or failed.
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: checkoutId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The checkout.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CheckoutResponse" }
+        "401": { description: Missing or invalid access token }
+        "404": { description: Unknown checkout, or not the caller's }
+  /api/admin/checkouts:
+    get:
+      operationId: listCheckouts
+      description: Recent checkouts, newest first, for watching sagas (stuck ones stay in compensating or a step).
+      security: [{ bearer: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/CheckoutStatus" }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: perPage, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+      responses:
+        "200":
+          description: A page of checkouts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Checkout" } }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    CheckoutResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/Checkout" }
+    CheckoutStatus:
+      type: string
+      enum: [reserving, paying, committing_stock, placing_order, closing_cart, completed, compensating, failed]
+      description: completed and failed are final. closing_cart already has an order.
+    Checkout:
+      type: object
+      required: [id, status, cartId, customerId, orderId, failureReason, lines, currency, subtotal, discount, total, couponCode, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        status: { $ref: "#/components/schemas/CheckoutStatus" }
+        cartId: { type: string }
+        customerId: { type: string }
+        orderId: { type: [string, "null"], description: Set once the order is placed. }
+        failureReason:
+          type: [string, "null"]
+          enum: [out_of_stock, payment_failed, reservation_expired, order_rejected, timeout, null]
+          description: Set when status is compensating or failed.
+        paymentFailure:
+          type: [object, "null"]
+          description: Present when failureReason is payment_failed; message is safe to show.
+          required: [reason, message]
+          properties:
+            reason: { type: string }
+            message: { type: [string, "null"] }
+        lines:
+          type: array
+          items:
+            type: object
+            required: [sku, productName, variantName, quantity, unitAmount, lineAmount]
+            properties:
+              sku: { type: string }
+              productName: { type: [string, "null"] }
+              variantName: { type: string }
+              quantity: { type: integer }
+              unitAmount: { type: integer }
+              lineAmount: { type: integer }
+        currency: { type: string }
+        subtotal: { type: integer }
+        discount: { type: integer }
+        total: { type: integer }
+        couponCode: { type: [string, "null"] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Address:
+      type: object
+      required: [name, line1, city, postalCode, country]
+      properties:
+        name: { type: string, maxLength: 100 }
+        line1: { type: string, maxLength: 200 }
+        line2: { type: [string, "null"], maxLength: 200 }
+        city: { type: string, maxLength: 100 }
+        region: { type: [string, "null"], maxLength: 100 }
+        postalCode: { type: string, maxLength: 20 }
+        country: { type: string, pattern: "^[A-Z]{2}$", description: ISO 3166-1 alpha-2. }
+    PageMeta:
+      type: object
+      required: [page, perPage, total, lastPage]
+      properties:
+        page: { type: integer }
+        perPage: { type: integer }
+        total: { type: integer }
+        lastPage: { type: integer }

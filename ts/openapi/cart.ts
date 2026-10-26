@@ -101,6 +101,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/carts/{cartId}/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Checkout's copy of a customer cart: SKUs, quantities, display names, coupon and version. Read-only. Guest carts are 404 (guests cannot check out). */
+        get: operations["getCartSnapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/carts/{cartId}/checked-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Called by checkout after the order is placed. Closes the cart and records cart.cart-checked-out with the given lines (the snapshot's). Idempotent per checkoutId: repeating it returns 200 without a second event. Lines added after the snapshot are dropped with the cart. */
+        post: operations["markCartCheckedOut"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -117,6 +151,24 @@ export interface components {
             lines: components["schemas"]["CartLine"][];
             /** Format: date-time */
             updatedAt: string;
+        };
+        CartSnapshot: {
+            cartId: string;
+            customerId: string;
+            /** @description Increases on every change to the cart. */
+            version: number;
+            couponCode: string | null;
+            /** @description In the order the SKUs were first added. Empty when the cart is empty. */
+            lines: {
+                sku: string;
+                quantity: number;
+                productName: string | null;
+                variantName: string;
+                /** @description False once the variant is inactive or its product unpublished. */
+                available: boolean;
+            }[];
+            /** Format: date-time */
+            takenAt: string;
         };
         CartLine: {
             sku: string;
@@ -387,6 +439,96 @@ export interface operations {
             };
             /** @description Unknown cart */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getCartSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cartId: components["parameters"]["CartId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The snapshot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CartSnapshot"];
+                    };
+                };
+            };
+            /** @description Missing or invalid access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown or closed cart */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    markCartCheckedOut: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cartId: components["parameters"]["CartId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    checkoutId: string;
+                    orderId: string;
+                    lines: {
+                        sku: string;
+                        quantity: number;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Closed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown cart */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already closed by a different checkout */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

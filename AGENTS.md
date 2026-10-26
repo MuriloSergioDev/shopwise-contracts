@@ -6,8 +6,9 @@ Consumers install it as `shopwise/contracts` (Composer, VCS) and `@shopwise/cont
 ## Layout
 - `schemas/envelope.json` — message envelope (ADR-0002 in shopwise-platform).
 - `schemas/events/<context>/<event>.v<N>.json` — payload (`data`) schema per event version. Draft 2020-12, `additionalProperties: false`.
+- `schemas/commands/<receiver>/<command>.v<N>.json` — checkout saga commands (ADR-0004), same envelope and rules as events; the receiver owns the topic. Generated into `Shopwise\Contracts\Commands\…` and `ts/commands/`.
 - `examples/<context>.<event>.v<N>.json` — one full envelope per schema; consumers use it as a test fixture.
-- `asyncapi.yaml` — catalog of channels (topic = `<context>.<event>`), owner in each description.
+- `asyncapi.yaml` — catalog of channels (topic = `<context>.<event>` or `<receiver>.<command>`), owner in each description.
 - `openapi/<service>.yaml` — OpenAPI 3.1 per service.
 - `php/src/`, `ts/` — **generated** by `pnpm generate`; committed so consumers can install from git.
 

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/commands/inventory/release-reservation.v1.json",
+  "title": "ReleaseReservation",
+  "description": "Compensation from checkout: return the checkout's held or committed stock. Looked up by checkoutId; releasing nothing is a no-op that still replies. Reply: inventory.reservation-released (reason requested). Keyed by checkoutId.",
+  "type": "object",
+  "required": ["checkoutId", "requestedAt"],
+  "properties": { "checkoutId": { "type": "string", "maxLength": 26 }, "requestedAt": { "type": "string", "format": "date-time" } },
+  "additionalProperties": false
+}

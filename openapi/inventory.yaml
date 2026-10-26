@@ -1,0 +1,151 @@
+openapi: 3.1.0
+info:
+  title: inventory service
+  version: 0.1.0
+  description: >
+    Stock levels and reservations per SKU. SKUs are known from catalog.variant-changed and start with zero stock.
+    Reservations are made and released only through checkout's commands (ADR-0004), never over HTTP. Called only by
+    the BFFs: availability is public, admin endpoints need an identity access token with the "admin" role.
+paths:
+  /api/stock:
+    get:
+      operationId: listAvailability
+      description: Availability for up to 100 SKUs, for product pages and the cart. Unknown SKUs are left out.
+      parameters:
+        - name: skus[]
+          in: query
+          required: true
+          style: form
+          explode: true
+          schema: { type: array, minItems: 1, maxItems: 100, items: { type: string, maxLength: 64 } }
+          description: Repeated, e.g. skus[]=TEE-MER-BLK-M&skus[]=TEE-MER-BLK-L.
+      responses:
+        "200":
+          description: Availability of the requested SKUs that inventory knows.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Availability" } }
+        "422": { description: Invalid query parameters }
+  /api/admin/stock:
+    get:
+      operationId: listStockLevels
+      description: Every known SKU's stock, ordered by SKU.
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 64 }, description: SKU prefix. }
+        - name: lowStock
+          in: query
+          schema: { type: integer, minimum: 0 }
+          description: Only SKUs whose available stock is at or below this number.
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: A page of stock levels.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/StockLevel" } }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+  /api/admin/stock/{sku}:
+    parameters:
+      - { name: sku, in: path, required: true, schema: { type: string, maxLength: 64 } }
+    get:
+      operationId: getStockLevel
+      security: [{ bearer: [] }]
+      responses:
+        "200":
+          description: The SKU's stock and its open reservations.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    allOf:
+                      - $ref: "#/components/schemas/StockLevel"
+                      - type: object
+                        required: [reservations]
+                        properties:
+                          reservations: { type: array, items: { $ref: "#/components/schemas/Reservation" } }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+        "404": { description: SKU not known from catalog }
+    put:
+      operationId: setStockLevel
+      description: >
+        Sets the on-hand quantity (a stock count, not a delta). Records inventory.stock-level-changed when it changed.
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [onHand]
+              properties:
+                onHand: { type: integer, minimum: 0, maximum: 1000000 }
+      responses:
+        "200":
+          description: Stock set.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/StockLevel" }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+        "404": { description: SKU not known from catalog }
+        "422": { description: Validation failed, including onHand below the currently reserved quantity (errors.onHand) }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Page: { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+    PerPage: { name: perPage, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+  schemas:
+    Availability:
+      type: object
+      required: [sku, available, inStock]
+      properties:
+        sku: { type: string }
+        available: { type: integer, description: Units that can still be reserved. }
+        inStock: { type: boolean }
+    StockLevel:
+      type: object
+      required: [sku, onHand, reserved, available, updatedAt]
+      properties:
+        sku: { type: string }
+        onHand: { type: integer, description: Physically in stock, including units held by open reservations. }
+        reserved: { type: integer, description: Held by open (not yet committed) reservations. }
+        available: { type: integer, description: onHand - reserved. }
+        updatedAt: { type: string, format: date-time }
+    Reservation:
+      type: object
+      required: [id, checkoutId, quantity, status, expiresAt]
+      properties:
+        id: { type: string }
+        checkoutId: { type: string }
+        quantity: { type: integer, description: Units of this SKU held. }
+        status: { type: string, enum: [held] }
+        expiresAt: { type: string, format: date-time }
+    PageMeta:
+      type: object
+      required: [page, perPage, total, lastPage]
+      properties:
+        page: { type: integer }
+        perPage: { type: integer }
+        total: { type: integer }
+        lastPage: { type: integer }

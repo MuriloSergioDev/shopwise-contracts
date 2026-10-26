@@ -1,0 +1,113 @@
+openapi: 3.1.0
+info:
+  title: payments service
+  version: 0.1.0
+  description: >
+    One Stripe PaymentIntent per checkout, created and confirmed when checkout sends payments.request-payment
+    (ADR-0004 in shopwise-platform); refunds on payments.refund-payment. Stripe runs in test mode with keys from a
+    Kubernetes Secret. The webhook is called by Stripe (locally through `stripe listen --forward-to`); every other
+    endpoint is called only by the BFFs. Amounts are integers in minor units with an ISO 4217 currency.
+paths:
+  /api/webhooks/stripe:
+    post:
+      operationId: handleStripeWebhook
+      description: >
+        Receives Stripe events. The signature is checked against the raw body before anything else. Handles
+        payment_intent.succeeded, payment_intent.payment_failed, payment_intent.canceled and charge.refunded; other
+        types are acknowledged and ignored. Events are deduped on their Stripe id; an outcome already decided by the
+        synchronous confirm is not published twice.
+      parameters:
+        - name: Stripe-Signature
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: A Stripe Event object, read as raw bytes for the signature check.
+              required: [id, type, data]
+              properties:
+                id: { type: string }
+                type: { type: string }
+                data: { type: object }
+      responses:
+        "200": { description: Handled, ignored or already seen }
+        "400": { description: Bad signature or unparsable body }
+  /api/checkouts/{checkoutId}/payment:
+    get:
+      operationId: getCheckoutPayment
+      description: The payment for one of the caller's checkouts.
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: checkoutId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The payment.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Payment" }
+        "401": { description: Missing or invalid access token }
+        "404": { description: No payment for this checkout, or not the caller's }
+  /api/admin/payments:
+    get:
+      operationId: listPayments
+      description: Payments, newest first.
+      security: [{ bearer: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/PaymentStatus" }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: perPage, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+      responses:
+        "200":
+          description: A page of payments.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Payment" } }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    PaymentStatus:
+      type: string
+      enum: [processing, succeeded, failed, refunded]
+    Payment:
+      type: object
+      required: [id, checkoutId, customerId, status, amount, currency, failureReason, failureMessage, refundedAt, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        checkoutId: { type: string }
+        customerId: { type: string }
+        status: { $ref: "#/components/schemas/PaymentStatus" }
+        amount: { type: integer, description: Minor units. }
+        currency: { type: string }
+        failureReason:
+          type: [string, "null"]
+          enum: [card_declined, insufficient_funds, authentication_required, canceled, timeout, processing_error, null]
+        failureMessage: { type: [string, "null"], description: Stripe's message, safe to show the customer. }
+        refundedAt: { type: [string, "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    PageMeta:
+      type: object
+      required: [page, perPage, total, lastPage]
+      properties:
+        page: { type: integer }
+        perPage: { type: integer }
+        total: { type: integer }
+        lastPage: { type: integer }
