@@ -7,6 +7,7 @@ jobs:
   hygiene:
     if: github.event_name == 'pull_request'
     uses: MuriloSergioDev/shopwise-platform/.github/workflows/pr-hygiene.yml@main
+    permissions: { pull-requests: read }
 
   check:
     uses: MuriloSergioDev/shopwise-platform/.github/workflows/nuxt-ci.yml@main
