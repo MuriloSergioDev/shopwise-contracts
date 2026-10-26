@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/envelope.json",
+  "title": "Envelope",
+  "description": "CloudEvents 1.0 structured-mode envelope used for every Shopwise Kafka message (ADR-0002).",
+  "type": "object",
+  "required": ["id", "type", "source", "time", "subject", "data"],
+  "properties": {
+    "id": { "type": "string", "description": "ULID, unique per message; consumers dedupe on it." },
+    "type": { "type": "string", "pattern": "^[a-z]+\\.[a-z-]+$" },
+    "source": { "type": "string", "description": "Producing service name." },
+    "time": { "type": "string", "format": "date-time" },
+    "subject": { "type": "string", "description": "Aggregate id; also the Kafka message key." },
+    "dataschema": { "type": "string" },
+    "data": { "type": "object" }
+  },
+  "additionalProperties": false
+}

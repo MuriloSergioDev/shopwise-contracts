@@ -1,0 +1,22 @@
+asyncapi: 3.0.0
+info:
+  title: Shopwise events
+  version: 0.1.0
+  description: Every Kafka topic, its owner and its payload schema. Envelope per ADR-0002.
+servers:
+  local:
+    host: shopwise-kafka-bootstrap:9092
+    protocol: kafka
+channels:
+  platform.pinged:
+    address: platform.pinged
+    description: "Owner: ping (service template)."
+    messages:
+      pinged:
+        name: platform.pinged
+        payload:
+          $ref: ./schemas/events/platform/pinged.v1.json
+operations:
+  publishPinged:
+    action: send
+    channel: { $ref: "#/channels/platform.pinged" }

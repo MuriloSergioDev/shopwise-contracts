@@ -1,0 +1,9 @@
+commit-msg:
+  commands:
+    commitlint:
+      run: pnpm exec commitlint --edit {1}
+pre-commit:
+  commands:
+    contracts:
+      glob: "{schemas,openapi,examples}/**"
+      run: node scripts/validate.mjs && pnpm generate && git add php ts

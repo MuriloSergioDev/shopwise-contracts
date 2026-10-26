@@ -1,0 +1,54 @@
+openapi: 3.1.0
+info:
+  title: ping service
+  version: 0.1.0
+paths:
+  /api/pings:
+    post:
+      operationId: createPing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message: { type: string, maxLength: 200 }
+      responses:
+        "202":
+          description: Ping accepted; platform.pinged will be published.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Ping" }
+        "422": { description: Validation failed }
+  /api/pings/{id}:
+    get:
+      operationId: getPing
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The ping and whether its event was consumed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Ping" }
+        "404": { description: Not found }
+components:
+  schemas:
+    Ping:
+      type: object
+      required: [id, message, requestedAt, consumedAt]
+      properties:
+        id: { type: string }
+        message: { type: string }
+        requestedAt: { type: string, format: date-time }
+        consumedAt: { type: [string, "null"], format: date-time }

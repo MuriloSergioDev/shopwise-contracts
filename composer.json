@@ -1,0 +1,8 @@
+{
+  "name": "shopwise/contracts",
+  "description": "Generated PHP DTOs for Shopwise event payloads.",
+  "type": "library",
+  "license": "MIT",
+  "require": { "php": "^8.5" },
+  "autoload": { "psr-4": { "Shopwise\\Contracts\\": "php/src/" } }
+}

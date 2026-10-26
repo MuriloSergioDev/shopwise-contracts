@@ -1,0 +1,52 @@
+name: ci
+on:
+  pull_request:
+  push: { branches: [main] }
+
+jobs:
+  hygiene:
+    if: github.event_name == 'pull_request'
+    uses: MuriloSergioDev/shopwise-platform/.github/workflows/pr-hygiene.yml@main
+
+  check:
+    uses: MuriloSergioDev/shopwise-platform/.github/workflows/nuxt-ci.yml@main
+    with: { build: false }
+
+  compat:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    services:
+      registry:
+        image: apicurio/apicurio-registry:3.3.3
+        ports: ["8081:8080"]
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - name: Wait for registry
+        run: for i in $(seq 1 60); do curl -sf localhost:8081/apis/registry/v3/system/info && break; sleep 2; done
+      - run: pnpm compat
+        env: { BASE_REF: "origin/${{ github.base_ref }}" }
+
+  release:
+    if: github.event_name == 'push'
+    needs: check
+    uses: MuriloSergioDev/shopwise-platform/.github/workflows/release.yml@main
+    permissions: { contents: write, pull-requests: write }
+    with: { release-type: node }
+
+  dispatch:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask consumers to bump contracts
+        env: { GH_TOKEN: "${{ secrets.DISPATCH_TOKEN }}" }
+        run: |
+          for repo in $(gh repo list MuriloSergioDev --json name -q '.[].name | select(startswith("shopwise-"))'); do
+            gh api repos/MuriloSergioDev/$repo/dispatches -f event_type=contracts-released \
+              -f "client_payload[tag]=${{ needs.release.outputs.tag }}" || true
+          done
