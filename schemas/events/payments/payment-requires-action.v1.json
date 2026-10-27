@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/events/payments/payment-requires-action.v1.json",
+  "title": "PaymentRequiresAction",
+  "description": "Interim reply to payments.request-payment: the PaymentIntent is in requires_action (3-D Secure). The customer must complete it in the storefront with stripe.handleNextAction(clientSecret). No money is taken yet; payments later publishes payments.payment-succeeded or payments.payment-failed (from the Stripe webhook, or failed with reason timeout at expiresAt). A re-sent request-payment re-publishes this event while the action is pending. Keyed by paymentId.",
+  "type": "object",
+  "required": [
+    "paymentId",
+    "checkoutId",
+    "customerId",
+    "amount",
+    "currency",
+    "stripePaymentIntentId",
+    "clientSecret",
+    "expiresAt",
+    "requiredAt"
+  ],
+  "properties": {
+    "paymentId": { "type": "string", "maxLength": 26 },
+    "checkoutId": { "type": "string", "maxLength": 26 },
+    "customerId": { "type": "string", "maxLength": 26 },
+    "amount": { "type": "integer", "minimum": 0, "description": "Minor units (cents)." },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "description": "ISO 4217 code." },
+    "stripePaymentIntentId": { "type": "string", "maxLength": 255 },
+    "clientSecret": {
+      "type": "string",
+      "maxLength": 255,
+      "description": "The PaymentIntent's client_secret. Only the paying customer may see it: checkout shows it on that customer's checkout and nowhere else."
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When payments cancels the PaymentIntent if the customer has not finished the action (10 minutes after it was created)."
+    },
+    "requiredAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

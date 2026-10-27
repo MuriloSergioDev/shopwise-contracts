@@ -5,8 +5,10 @@ info:
   description: >
     Runs the checkout saga (ADR-0004 in shopwise-platform). Called only by the storefront BFF, always with the
     customer's access token: guests cannot check out. Starting a checkout takes the cart snapshot and the pricing
-    quote synchronously, so a bad cart or coupon is a 422 and nothing starts; the rest (reserve stock, pay, commit
-    stock, place order, close cart) runs asynchronously and the BFF polls the checkout. Amounts are integers in minor
+    quote synchronously, so a bad cart or coupon is a 422 and nothing starts; the snapshot locks the cart for the
+    checkout until it fails or the cart is closed. The rest (reserve stock, pay, commit stock, place order, close
+    cart) runs asynchronously and the BFF polls the checkout; when the card needs 3-D Secure the checkout waits in
+    awaiting_payment_action with a clientSecret. Amounts are integers in minor
     units with an ISO 4217 currency.
 paths:
   /api/checkouts:
@@ -49,12 +51,13 @@ paths:
               schema: { $ref: "#/components/schemas/CheckoutResponse" }
         "401": { description: Missing or invalid access token }
         "404": { description: Unknown cart, or not the caller's }
-        "409": { description: The cart already has a checkout in progress under another Idempotency-Key }
+        "409": { description: The cart already has a checkout in progress under another Idempotency-Key (the snapshot answered 409 cart_locked) }
         "422":
           description: >
-            Validation failed, or the cart cannot be checked out: errors.cartId when it is empty or has lines that are
-            no longer for sale, errors.lines when a line has no price, errors.couponCode with the pricing reason when
-            the coupon does not apply.
+            Validation failed, or the cart cannot be checked out: errors.cartId when it is empty (the snapshot has no
+            lines) or has lines that are no longer for sale, errors.lines when a line has no price, errors.couponCode
+            with the pricing reason when the coupon does not apply. The cart lock taken by the snapshot is released
+            before answering.
   /api/checkouts/{checkoutId}:
     get:
       operationId: getCheckout
@@ -105,8 +108,11 @@ components:
         data: { $ref: "#/components/schemas/Checkout" }
     CheckoutStatus:
       type: string
-      enum: [reserving, paying, committing_stock, placing_order, closing_cart, completed, compensating, failed]
-      description: completed and failed are final. closing_cart already has an order.
+      enum: [reserving, paying, awaiting_payment_action, committing_stock, placing_order, closing_cart, completed, compensating, failed]
+      description: >
+        completed and failed are final. closing_cart already has an order. awaiting_payment_action: the card needs
+        3-D Secure; the storefront runs stripe.handleNextAction with clientSecret and keeps polling (payments finishes
+        through the Stripe webhook).
     Checkout:
       type: object
       required: [id, status, cartId, customerId, orderId, failureReason, lines, currency, subtotal, discount, total, couponCode, createdAt, updatedAt]
@@ -127,6 +133,16 @@ components:
           properties:
             reason: { type: string }
             message: { type: [string, "null"] }
+        clientSecret:
+          type: [string, "null"]
+          description: >
+            The Stripe PaymentIntent client secret, set only while status is awaiting_payment_action and only on the
+            customer's own GET /api/checkouts/{checkoutId} (null in admin listings). Pass it to
+            stripe.handleNextAction.
+        paymentActionExpiresAt:
+          type: [string, "null"]
+          format: date-time
+          description: When an unfinished 3-D Secure action is abandoned; set with clientSecret.
         lines:
           type: array
           items:

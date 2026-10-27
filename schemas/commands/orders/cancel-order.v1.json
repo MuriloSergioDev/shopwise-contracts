@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shopwise.dev/schemas/commands/orders/cancel-order.v1.json",
+  "title": "CancelOrder",
+  "description": "Compensation from checkout when the place-order step timed out: make sure the checkout ends with no live order. Cancels the checkout's order if one was placed; otherwise records the cancellation so a late place-order for this checkoutId is answered with orders.order-rejected (reason cancelled). Idempotent per checkoutId. Reply: orders.order-cancelled. Keyed by checkoutId.",
+  "type": "object",
+  "required": ["checkoutId", "reason", "requestedAt"],
+  "properties": {
+    "checkoutId": { "type": "string", "maxLength": 26 },
+    "reason": {
+      "type": "string",
+      "enum": ["timeout"],
+      "description": "Why the order is being cancelled: the saga's place-order step timed out."
+    },
+    "requestedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

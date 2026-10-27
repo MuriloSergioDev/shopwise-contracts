@@ -1,0 +1,17 @@
+{
+  "id": "01JBCDEFGHJKMNPQRSTVWXYZ68",
+  "type": "orders.order-cancelled",
+  "source": "orders",
+  "time": "2026-10-26T12:00:00Z",
+  "subject": "01JBCDEFGHJKMNPQRSTVWXYZ40",
+  "dataschema": "orders/order-cancelled.v1",
+  "data": {
+    "checkoutId": "01JBCDEFGHJKMNPQRSTVWXYZ40",
+    "orderId": "01JBCDEFGHJKMNPQRSTVWXYZ44",
+    "number": "SW-000123",
+    "customerId": "01JBCDEFGHJKMNPQRSTVWXYZ11",
+    "email": "customer@shopwise.test",
+    "reason": "timeout",
+    "cancelledAt": "2026-10-26T12:00:00Z"
+  }
+}

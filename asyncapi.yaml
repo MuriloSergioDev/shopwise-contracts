@@ -116,7 +116,7 @@ channels:
           $ref: ./schemas/events/inventory/stock-level-changed.v1.json
   payments.request-payment:
     address: payments.request-payment
-    description: "Command. Sender: checkout. Owner/receiver: payments. Key: checkoutId. Replies: payments.payment-succeeded, payments.payment-failed."
+    description: "Command. Sender: checkout. Owner/receiver: payments. Key: checkoutId. Replies: payments.payment-succeeded, payments.payment-failed (after payments.payment-requires-action when 3-D Secure is needed)."
     messages:
       requestPayment:
         name: payments.request-payment
@@ -146,9 +146,17 @@ channels:
         name: payments.payment-failed
         payload:
           $ref: ./schemas/events/payments/payment-failed.v1.json
+  payments.payment-requires-action:
+    address: payments.payment-requires-action
+    description: "Owner: payments. Key: paymentId. Interim reply to payments.request-payment (3-D Secure); consumed by checkout."
+    messages:
+      paymentRequiresAction:
+        name: payments.payment-requires-action
+        payload:
+          $ref: ./schemas/events/payments/payment-requires-action.v1.json
   payments.refunded:
     address: payments.refunded
-    description: "Owner: payments. Key: paymentId. Reply to payments.refund-payment; also consumed by notifications."
+    description: "Owner: payments. Key: paymentId. Reply to payments.refund-payment, or a refund made outside the saga (reason external); also consumed by notifications."
     messages:
       refunded:
         name: payments.refunded
@@ -162,6 +170,14 @@ channels:
         name: orders.place-order
         payload:
           $ref: ./schemas/commands/orders/place-order.v1.json
+  orders.cancel-order:
+    address: orders.cancel-order
+    description: "Command (compensation). Sender: checkout. Owner/receiver: orders. Key: checkoutId. Reply: orders.order-cancelled."
+    messages:
+      cancelOrder:
+        name: orders.cancel-order
+        payload:
+          $ref: ./schemas/commands/orders/cancel-order.v1.json
   orders.order-placed:
     address: orders.order-placed
     description: "Owner: orders. Key: orderId. Reply to orders.place-order; also consumed by notifications."
@@ -178,6 +194,14 @@ channels:
         name: orders.order-rejected
         payload:
           $ref: ./schemas/events/orders/order-rejected.v1.json
+  orders.order-cancelled:
+    address: orders.order-cancelled
+    description: "Owner: orders. Key: checkoutId. Reply to orders.cancel-order; also consumed by notifications."
+    messages:
+      orderCancelled:
+        name: orders.order-cancelled
+        payload:
+          $ref: ./schemas/events/orders/order-cancelled.v1.json
   orders.order-shipped:
     address: orders.order-shipped
     description: "Owner: orders. Key: orderId."
@@ -262,18 +286,27 @@ operations:
   publishPaymentFailed:
     action: send
     channel: { $ref: "#/channels/payments.payment-failed" }
+  publishPaymentRequiresAction:
+    action: send
+    channel: { $ref: "#/channels/payments.payment-requires-action" }
   publishRefunded:
     action: send
     channel: { $ref: "#/channels/payments.refunded" }
   sendPlaceOrder:
     action: send
     channel: { $ref: "#/channels/orders.place-order" }
+  sendCancelOrder:
+    action: send
+    channel: { $ref: "#/channels/orders.cancel-order" }
   publishOrderPlaced:
     action: send
     channel: { $ref: "#/channels/orders.order-placed" }
   publishOrderRejected:
     action: send
     channel: { $ref: "#/channels/orders.order-rejected" }
+  publishOrderCancelled:
+    action: send
+    channel: { $ref: "#/channels/orders.order-cancelled" }
   publishOrderShipped:
     action: send
     channel: { $ref: "#/channels/orders.order-shipped" }

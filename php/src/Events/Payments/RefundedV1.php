@@ -6,7 +6,7 @@ declare(strict_types=1);
 
 namespace Shopwise\Contracts\Events\Payments;
 
-/** A succeeded payment was refunded in full; the reply to payments.refund-payment. Notifications mails the customer. Keyed by paymentId. */
+/** A succeeded payment was refunded. Either the reply to payments.refund-payment (always in full, reason from the command) or a refund made outside the saga, e.g. in the Stripe dashboard (reason external, from the charge.refunded webhook; may be partial, amount is what was refunded). Checkout ignores external refunds. Notifications mails the customer. Keyed by paymentId. */
 final readonly class RefundedV1
 {
     public const string TYPE = 'payments.refunded';

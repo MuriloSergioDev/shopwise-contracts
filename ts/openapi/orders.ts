@@ -87,8 +87,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @enum {string} */
-        OrderStatus: "placed" | "shipped";
+        /**
+         * @description cancelled only by orders.cancel-order (checkout compensation for a place-order step that timed out); a cancelled order cannot be shipped (409).
+         * @enum {string}
+         */
+        OrderStatus: "placed" | "shipped" | "cancelled";
         OrderSummary: {
             id: string;
             /** @description e.g. SW-000123. */

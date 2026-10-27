@@ -56,10 +56,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** @description Every product, drafts included, newest first. For the admin; no facets. */
+        get: operations["listAdminProducts"];
         put?: never;
         /** @description Creates a draft product. Records catalog.variant-changed for every variant. */
         post: operations["createProduct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/products/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One product in any status, with all its variants (inactive ones included). */
+        get: operations["showAdminProduct"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -137,6 +155,16 @@ export interface components {
             name: string;
             category: components["schemas"]["CategoryRef"];
             image: components["schemas"]["Image"] | null;
+        };
+        AdminProductSummary: components["schemas"]["ProductSummary"] & {
+            /** @enum {string} */
+            status: "draft" | "published";
+            /** Format: date-time */
+            publishedAt: string | null;
+            variantCount: number;
+            activeVariantCount: number;
+            /** Format: date-time */
+            updatedAt: string;
         };
         Product: {
             id: string;
@@ -276,6 +304,58 @@ export interface operations {
             };
         };
     };
+    listAdminProducts: {
+        parameters: {
+            query?: {
+                /** @description Matches name */
+                q?: string;
+                status?: "draft" | "published";
+                /** @description Category slug; includes its child categories. */
+                category?: string;
+                page?: number;
+                perPage?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of products. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["AdminProductSummary"][];
+                        meta: components["schemas"]["PageMeta"];
+                    };
+                };
+            };
+            /** @description Missing or invalid access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid query parameters */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     createProduct: {
         parameters: {
             query?: never;
@@ -328,6 +408,51 @@ export interface operations {
             };
             /** @description Validation failed (including duplicate slug or SKU) */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    showAdminProduct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The product. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Product"];
+                    };
+                };
+            };
+            /** @description Missing or invalid access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown product */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

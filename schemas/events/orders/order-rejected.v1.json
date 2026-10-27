@@ -9,8 +9,8 @@
     "checkoutId": { "type": "string", "maxLength": 26 },
     "reason": {
       "type": "string",
-      "enum": ["invalid", "duplicate_conflict"],
-      "description": "invalid: the command failed validation; duplicate_conflict: the checkout already has an order with different contents."
+      "enum": ["invalid", "duplicate_conflict", "cancelled"],
+      "description": "invalid: the command failed validation; duplicate_conflict: the checkout already has an order with different contents; cancelled: orders.cancel-order arrived for this checkout before the place-order."
     },
     "message": { "type": ["string", "null"], "maxLength": 500 },
     "rejectedAt": { "type": "string", "format": "date-time" }

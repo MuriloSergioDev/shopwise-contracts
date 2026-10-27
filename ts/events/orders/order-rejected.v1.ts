@@ -6,9 +6,9 @@
 export interface OrderRejectedV1 {
   checkoutId: string;
   /**
-   * invalid: the command failed validation; duplicate_conflict: the checkout already has an order with different contents.
+   * invalid: the command failed validation; duplicate_conflict: the checkout already has an order with different contents; cancelled: orders.cancel-order arrived for this checkout before the place-order.
    */
-  reason: "invalid" | "duplicate_conflict";
+  reason: "invalid" | "duplicate_conflict" | "cancelled";
   message: string | null;
   rejectedAt: string;
 }

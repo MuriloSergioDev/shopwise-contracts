@@ -27,7 +27,8 @@
     "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "description": "ISO 4217 code." },
     "reason": {
       "type": "string",
-      "enum": ["card_declined", "insufficient_funds", "authentication_required", "canceled", "timeout", "processing_error"]
+      "enum": ["card_declined", "insufficient_funds", "authentication_required", "canceled", "timeout", "processing_error"],
+      "description": "authentication_required: the customer failed 3-D Secure; timeout: no final outcome by the deadline (5 minutes, or the requires-action expiresAt), so the PaymentIntent was canceled."
     },
     "message": { "type": ["string", "null"], "maxLength": 500, "description": "Stripe's message, safe to show the customer." },
     "stripePaymentIntentId": { "type": ["string", "null"], "maxLength": 255 },

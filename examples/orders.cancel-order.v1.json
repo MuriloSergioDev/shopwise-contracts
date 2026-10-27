@@ -1,0 +1,9 @@
+{
+  "id": "01JBCDEFGHJKMNPQRSTVWXYZ67",
+  "type": "orders.cancel-order",
+  "source": "checkout",
+  "time": "2026-10-26T12:00:00Z",
+  "subject": "01JBCDEFGHJKMNPQRSTVWXYZ40",
+  "dataschema": "orders/cancel-order.v1",
+  "data": { "checkoutId": "01JBCDEFGHJKMNPQRSTVWXYZ40", "reason": "timeout", "requestedAt": "2026-10-26T12:00:00Z" }
+}

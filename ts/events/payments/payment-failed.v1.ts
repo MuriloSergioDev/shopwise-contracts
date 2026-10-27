@@ -18,6 +18,9 @@ export interface PaymentFailedV1 {
    * ISO 4217 code.
    */
   currency: string;
+  /**
+   * authentication_required: the customer failed 3-D Secure; timeout: no final outcome by the deadline (5 minutes, or the requires-action expiresAt), so the PaymentIntent was canceled.
+   */
   reason:
     "card_declined" | "insufficient_funds" | "authentication_required" | "canceled" | "timeout" | "processing_error";
   /**

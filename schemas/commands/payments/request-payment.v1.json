@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://shopwise.dev/schemas/commands/payments/request-payment.v1.json",
   "title": "RequestPayment",
-  "description": "Command from checkout: create and confirm a Stripe PaymentIntent for the checkout (idempotency key checkout-{checkoutId}-pay). One payment per checkoutId. Replies: payments.payment-succeeded or payments.payment-failed, always within 5 minutes. Keyed by checkoutId.",
+  "description": "Command from checkout: create and confirm a Stripe PaymentIntent for the checkout (idempotency key checkout-{checkoutId}-pay). One payment per checkoutId. Replies: payments.payment-succeeded or payments.payment-failed within 5 minutes; when the card needs 3-D Secure, first payments.payment-requires-action, then the final reply by its expiresAt (10 minutes). Keyed by checkoutId.",
   "type": "object",
   "required": ["checkoutId", "customerId", "amount", "currency", "paymentMethodId", "requestedAt"],
   "properties": {

@@ -24,7 +24,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The caller's cart, created empty on first access. */
+        /** @description The caller's open cart, created empty when there is none (first access, or the last one was closed). */
         get: operations["getCustomerCart"];
         put?: never;
         post?: never;
@@ -43,7 +43,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Moves a guest cart's lines into the caller's cart and deletes the guest cart. Quantities of the same SKU are added, capped at 99. The guest coupon is kept only when the customer cart has none. Merging an unknown or already merged guest cart is a no-op, so the BFF can retry. */
+        /** @description Moves a guest cart's lines into the caller's cart and deletes the guest cart. Quantities of the same SKU are added, capped at 99. The guest coupon is kept only when the customer cart has none. A cart holds at most 50 lines: guest SKUs new to the customer cart are added in the guest cart's order until it has 50; the rest are not added and are listed in meta.droppedSkus so the storefront can tell the customer. Merging an unknown or already merged guest cart is a no-op (droppedSkus empty), so the BFF can retry. When the customer cart is locked by a checkout, nothing changes (the guest cart is kept) and the answer is 409; the BFF keeps the guest cart id and retries on a later request. */
         post: operations["mergeGuestCart"];
         delete?: never;
         options?: never;
@@ -108,10 +108,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Checkout's copy of a customer cart: SKUs, quantities, display names, coupon and version. Read-only. Guest carts are 404 (guests cannot check out). */
+        /**
+         * @deprecated
+         * @description Checkout's copy of a customer cart: SKUs, quantities, display names, coupon and version. Read-only and takes no lock; checkout uses POST since the cart lock. Guest carts are 404 (guests cannot check out).
+         */
         get: operations["getCartSnapshot"];
         put?: never;
-        post?: never;
+        /** @description Step 1 of a checkout: returns the snapshot (as GET does) and locks the cart for checkoutId in the same transaction. Idempotent per checkoutId: the same checkoutId keeps the lock and gets a fresh snapshot. An empty cart is locked too and answered 200 with no lines; checkout then answers 422 and unlocks it. Guest carts are 404 (guests cannot check out). */
+        post: operations["takeCartSnapshot"];
         delete?: never;
         options?: never;
         head?: never;
@@ -127,8 +131,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Called by checkout after the order is placed. Closes the cart and records cart.cart-checked-out with the given lines (the snapshot's). Idempotent per checkoutId: repeating it returns 200 without a second event. Lines added after the snapshot are dropped with the cart. */
+        /** @description Called by checkout after the order is placed. Closes the cart (which ends its lock) and records cart.cart-checked-out with the given lines (the snapshot's). Idempotent per checkoutId: repeating it returns 200 with the same body and no second event. The cart is locked from the snapshot on, so no line can have been added after it. */
         post: operations["markCartCheckedOut"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/carts/{cartId}/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Called by checkout when a checkout that took the lock fails (when it records checkout.failed) or is answered 422 after the snapshot. Removes the lock so the customer can edit the cart again. Idempotent: unlocking a cart that is not locked, or is locked by another checkout, changes nothing and returns 200 with the current lock. Cluster-only, no JWT, like checked-out. */
+        post: operations["unlockCart"];
         delete?: never;
         options?: never;
         head?: never;
@@ -139,6 +160,14 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CartLockedError: {
+            /** @description e.g. "This cart is being checked out." */
+            message: string;
+            /** @constant */
+            code: "cart_locked";
+            /** @description The checkout holding the lock. */
+            checkoutId: string;
+        };
         CartResponse: {
             data: components["schemas"]["Cart"];
         };
@@ -151,6 +180,8 @@ export interface components {
             lines: components["schemas"]["CartLine"][];
             /** Format: date-time */
             updatedAt: string;
+            /** @description The checkout that locked the cart; while set, every change is 409 cart_locked. */
+            lockedByCheckoutId?: string | null;
         };
         CartSnapshot: {
             cartId: string;
@@ -183,7 +214,17 @@ export interface components {
             currency: string | null;
         };
     };
-    responses: never;
+    responses: {
+        /** @description The cart is locked by a checkout in progress; nothing changed. */
+        CartLocked: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["CartLockedError"];
+            };
+        };
+    };
     parameters: {
         CartId: string;
     };
@@ -222,8 +263,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The customer's cart. */
+            /** @description The customer's existing cart. */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CartResponse"];
+                };
+            };
+            /** @description No open cart existed; an empty one was created. */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -261,7 +311,13 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CartResponse"];
+                    "application/json": {
+                        data: components["schemas"]["Cart"];
+                        meta: {
+                            /** @description Guest SKUs not added because the cart reached 50 lines; empty when everything fit. */
+                            droppedSkus: string[];
+                        };
+                    };
                 };
             };
             /** @description Missing or invalid access token */
@@ -271,6 +327,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            409: components["responses"]["CartLocked"];
         };
     };
     getCart: {
@@ -336,6 +393,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            409: components["responses"]["CartLocked"];
             /** @description Validation failed. errors.sku is set when the SKU is unknown or not for sale (inactive variant or unpublished product); errors.items when the cart already has 50 lines. */
             422: {
                 headers: {
@@ -373,6 +431,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            409: components["responses"]["CartLocked"];
         };
     };
     setCartCoupon: {
@@ -408,6 +467,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            409: components["responses"]["CartLocked"];
             /** @description Validation failed */
             422: {
                 headers: {
@@ -444,6 +504,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            409: components["responses"]["CartLocked"];
         };
     };
     getCartSnapshot: {
@@ -484,6 +545,58 @@ export interface operations {
             };
         };
     };
+    takeCartSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cartId: components["parameters"]["CartId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    checkoutId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The snapshot; the cart is now locked by checkoutId. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CartSnapshot"];
+                    };
+                };
+            };
+            /** @description Missing or invalid access token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown or closed cart */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["CartLocked"];
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     markCartCheckedOut: {
         parameters: {
             query?: never;
@@ -506,12 +619,22 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Closed */
+            /** @description Closed, now or by an earlier call with the same checkoutId. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        data: {
+                            cartId: string;
+                            checkoutId: string;
+                            orderId: string;
+                            /** Format: date-time */
+                            closedAt: string;
+                        };
+                    };
+                };
             };
             /** @description Unknown cart */
             404: {
@@ -520,8 +643,56 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Already closed by a different checkout */
+            /** @description Already closed by */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    unlockCart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cartId: components["parameters"]["CartId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    checkoutId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The cart's lock after the call. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            cartId: string;
+                            /** @description Null once unlocked. */
+                            lockedByCheckoutId: string | null;
+                        };
+                    };
+                };
+            };
+            /** @description Unknown or closed cart */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

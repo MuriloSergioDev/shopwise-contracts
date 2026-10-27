@@ -9,7 +9,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Receives Stripe events. The signature is checked against the raw body before anything else. Handles payment_intent.succeeded, payment_intent.payment_failed, payment_intent.canceled and charge.refunded; other types are acknowledged and ignored. Events are deduped on their Stripe id; an outcome already decided by the synchronous confirm is not published twice. */
+        /** @description Receives Stripe events. The signature is checked against the raw body before anything else. Handles payment_intent.succeeded, payment_intent.payment_failed, payment_intent.canceled and charge.refunded; other types are acknowledged and ignored. Events are deduped on their Stripe id; an outcome already decided by the synchronous confirm is not published twice. After payments.payment-requires-action (3-D Secure) the webhook is what finishes the payment: payment_intent.succeeded → payments.payment-succeeded, payment_intent.payment_failed → payments.payment-failed (authentication_required when 3-D Secure failed). charge.refunded for a refund payments did not request itself (dashboard or API) is published as payments.refunded with reason external. */
         post: operations["handleStripeWebhook"];
         delete?: never;
         options?: never;
@@ -55,8 +55,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** @enum {string} */
-        PaymentStatus: "processing" | "succeeded" | "failed" | "refunded";
+        /**
+         * @description requires_action waits for the customer to finish 3-D Secure; refunded covers refunds made outside the saga too.
+         * @enum {string}
+         */
+        PaymentStatus: "processing" | "requires_action" | "succeeded" | "failed" | "refunded";
         Payment: {
             id: string;
             checkoutId: string;

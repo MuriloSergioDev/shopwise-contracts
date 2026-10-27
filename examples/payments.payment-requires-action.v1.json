@@ -1,0 +1,19 @@
+{
+  "id": "01JBCDEFGHJKMNPQRSTVWXYZ66",
+  "type": "payments.payment-requires-action",
+  "source": "payments",
+  "time": "2026-10-26T12:00:00Z",
+  "subject": "01JBCDEFGHJKMNPQRSTVWXYZ43",
+  "dataschema": "payments/payment-requires-action.v1",
+  "data": {
+    "paymentId": "01JBCDEFGHJKMNPQRSTVWXYZ43",
+    "checkoutId": "01JBCDEFGHJKMNPQRSTVWXYZ40",
+    "customerId": "01JBCDEFGHJKMNPQRSTVWXYZ11",
+    "amount": 5220,
+    "currency": "USD",
+    "stripePaymentIntentId": "pi_3QabcDEFghiJKL0a1b2c3d4e",
+    "clientSecret": "pi_3QabcDEFghiJKL0a1b2c3d4e_secret_Z9y8X7w6V5u4T3s2R1q0",
+    "expiresAt": "2026-10-26T12:10:00Z",
+    "requiredAt": "2026-10-26T12:00:00Z"
+  }
+}

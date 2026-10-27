@@ -4,9 +4,10 @@ info:
   version: 0.1.0
   description: >
     Orders created by checkout's orders.place-order command (ADR-0004 in shopwise-platform); never created over HTTP.
-    An order is an immutable record of what was bought at what price; only its fulfilment status changes. Called only
-    by the BFFs: customer endpoints need the owner's access token, admin endpoints a token with the "admin" role.
-    Amounts are integers in minor units with an ISO 4217 currency.
+    An order is an immutable record of what was bought at what price; only its status changes (shipped, or cancelled
+    by checkout compensation via orders.cancel-order). Called only by the BFFs: customer endpoints need the owner's
+    access token, admin endpoints a token with the "admin" role. Amounts are integers in minor units with an ISO
+    4217 currency.
 paths:
   /api/me/orders:
     get:
@@ -100,7 +101,7 @@ paths:
         "401": { description: Missing or invalid access token }
         "403": { description: Not an admin }
         "404": { description: Unknown order }
-        "409": { description: Already shipped with a different carrier or tracking number }
+        "409": { description: Already shipped with a different carrier or tracking number, or the order is cancelled }
         "422": { description: Validation failed }
 components:
   securitySchemes:
@@ -112,7 +113,8 @@ components:
   schemas:
     OrderStatus:
       type: string
-      enum: [placed, shipped]
+      enum: [placed, shipped, cancelled]
+      description: cancelled only by orders.cancel-order (checkout compensation for a place-order step that timed out); a cancelled order cannot be shipped (409).
     OrderSummary:
       type: object
       required: [id, number, status, customerId, email, itemCount, currency, total, placedAt]

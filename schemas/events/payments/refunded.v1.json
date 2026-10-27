@@ -2,16 +2,20 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://shopwise.dev/schemas/events/payments/refunded.v1.json",
   "title": "Refunded",
-  "description": "A succeeded payment was refunded in full; the reply to payments.refund-payment. Notifications mails the customer. Keyed by paymentId.",
+  "description": "A succeeded payment was refunded. Either the reply to payments.refund-payment (always in full, reason from the command) or a refund made outside the saga, e.g. in the Stripe dashboard (reason external, from the charge.refunded webhook; may be partial, amount is what was refunded). Checkout ignores external refunds. Notifications mails the customer. Keyed by paymentId.",
   "type": "object",
   "required": ["paymentId", "checkoutId", "customerId", "amount", "currency", "reason", "stripeRefundId", "refundedAt"],
   "properties": {
     "paymentId": { "type": "string", "maxLength": 26 },
     "checkoutId": { "type": "string", "maxLength": 26 },
     "customerId": { "type": "string", "maxLength": 26 },
-    "amount": { "type": "integer", "minimum": 0, "description": "Minor units (cents)." },
+    "amount": { "type": "integer", "minimum": 0, "description": "Minor units (cents) refunded." },
     "currency": { "type": "string", "pattern": "^[A-Z]{3}$", "description": "ISO 4217 code." },
-    "reason": { "type": "string", "enum": ["reservation_expired", "order_rejected", "timeout"] },
+    "reason": {
+      "type": "string",
+      "enum": ["reservation_expired", "order_rejected", "timeout", "external"],
+      "description": "The refund-payment reason, or external for a refund checkout did not ask for."
+    },
     "stripeRefundId": { "type": "string", "maxLength": 255 },
     "refundedAt": { "type": "string", "format": "date-time" }
   },

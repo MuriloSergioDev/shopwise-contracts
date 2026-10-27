@@ -58,10 +58,10 @@ export interface components {
             data: components["schemas"]["Checkout"];
         };
         /**
-         * @description completed and failed are final. closing_cart already has an order.
+         * @description completed and failed are final. closing_cart already has an order. awaiting_payment_action: the card needs 3-D Secure; the storefront runs stripe.handleNextAction with clientSecret and keeps polling (payments finishes through the Stripe webhook).
          * @enum {string}
          */
-        CheckoutStatus: "reserving" | "paying" | "committing_stock" | "placing_order" | "closing_cart" | "completed" | "compensating" | "failed";
+        CheckoutStatus: "reserving" | "paying" | "awaiting_payment_action" | "committing_stock" | "placing_order" | "closing_cart" | "completed" | "compensating" | "failed";
         Checkout: {
             id: string;
             status: components["schemas"]["CheckoutStatus"];
@@ -79,6 +79,13 @@ export interface components {
                 reason: string;
                 message: string | null;
             } | null;
+            /** @description The Stripe PaymentIntent client secret, set only while status is awaiting_payment_action and only on the customer's own GET /api/checkouts/{checkoutId} (null in admin listings). Pass it to stripe.handleNextAction. */
+            clientSecret?: string | null;
+            /**
+             * Format: date-time
+             * @description When an unfinished 3-D Secure action is abandoned; set with clientSecret.
+             */
+            paymentActionExpiresAt?: string | null;
             lines: {
                 sku: string;
                 productName: string | null;
@@ -178,14 +185,14 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The cart already has a checkout in progress under another Idempotency-Key */
+            /** @description The cart already has a checkout in progress under another Idempotency-Key (the snapshot answered 409 cart_locked) */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Validation failed, or the cart cannot be checked out: errors.cartId when it is empty or has lines that are no longer for sale, errors.lines when a line has no price, errors.couponCode with the pricing reason when the coupon does not apply. */
+            /** @description Validation failed, or the cart cannot be checked out: errors.cartId when it is empty (the snapshot has no lines) or has lines that are no longer for sale, errors.lines when a line has no price, errors.couponCode with the pricing reason when the coupon does not apply. The cart lock taken by the snapshot is released before answering. */
             422: {
                 headers: {
                     [name: string]: unknown;

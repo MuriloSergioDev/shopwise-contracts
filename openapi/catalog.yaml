@@ -5,7 +5,8 @@ info:
   description: >
     Products, variants and categories. Called only by the BFFs. Browse and search endpoints are public and
     only ever show published products and their active variants. Admin endpoints need an identity access
-    token with the "admin" role. Prices are not here: they belong to pricing, keyed by SKU.
+    token with the "admin" role and see drafts and inactive variants too. Prices are not here: they belong to
+    pricing, keyed by SKU.
 paths:
   /api/categories:
     get:
@@ -67,6 +68,30 @@ paths:
                   data: { $ref: "#/components/schemas/Product" }
         "404": { description: No published product with that slug }
   /api/admin/products:
+    get:
+      operationId: listAdminProducts
+      description: Every product, drafts included, newest first. For the admin; no facets.
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 100 }, description: Matches name, slug or a variant SKU. }
+        - { name: status, in: query, schema: { type: string, enum: [draft, published] } }
+        - { name: category, in: query, schema: { type: string }, description: Category slug; includes its child categories. }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: perPage, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+      responses:
+        "200":
+          description: One page of products.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/AdminProductSummary" } }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+        "422": { description: Invalid query parameters }
     post:
       operationId: createProduct
       description: Creates a draft product. Records catalog.variant-changed for every variant.
@@ -108,6 +133,26 @@ paths:
         "401": { description: Missing or invalid access token }
         "403": { description: Not an admin }
         "422": { description: Validation failed (including duplicate slug or SKU) }
+  /api/admin/products/{id}:
+    get:
+      operationId: showAdminProduct
+      description: One product in any status, with all its variants (inactive ones included).
+      security: [{ bearer: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The product.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Product" }
+        "401": { description: Missing or invalid access token }
+        "403": { description: Not an admin }
+        "404": { description: Unknown product }
   /api/admin/products/{id}/publish:
     post:
       operationId: publishProduct
@@ -208,6 +253,17 @@ components:
         name: { type: string }
         category: { $ref: "#/components/schemas/CategoryRef" }
         image: { oneOf: [{ $ref: "#/components/schemas/Image" }, { type: "null" }] }
+    AdminProductSummary:
+      allOf:
+        - $ref: "#/components/schemas/ProductSummary"
+        - type: object
+          required: [status, publishedAt, variantCount, activeVariantCount, updatedAt]
+          properties:
+            status: { type: string, enum: [draft, published] }
+            publishedAt: { type: [string, "null"], format: date-time }
+            variantCount: { type: integer }
+            activeVariantCount: { type: integer }
+            updatedAt: { type: string, format: date-time }
     Product:
       type: object
       required: [id, slug, name, description, category, images, variants, status, publishedAt]

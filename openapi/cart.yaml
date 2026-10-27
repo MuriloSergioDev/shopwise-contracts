@@ -11,6 +11,11 @@ info:
     takes a snapshot with the customer's token and, once the order is placed, closes the cart through an /internal
     route that only services inside the cluster can reach (no JWT; the BFFs never proxy /internal). A closed cart is
     404 everywhere and GET /api/me/cart creates a fresh one.
+
+    Checkout lock (ADR-0004): POST /api/carts/{cartId}/snapshot locks the cart for one checkoutId. While locked,
+    every change to it (items, coupon, a merge into it) is 409 with code cart_locked; reads still work and show
+    lockedByCheckoutId. Checkout unlocks it through POST /internal/carts/{cartId}/unlock when the checkout fails (or
+    when it answers 422 after the snapshot); POST /internal/carts/{cartId}/checked-out closes it for good.
 paths:
   /api/carts:
     post:
@@ -25,11 +30,16 @@ paths:
   /api/me/cart:
     get:
       operationId: getCustomerCart
-      description: The caller's cart, created empty on first access.
+      description: The caller's open cart, created empty when there is none (first access, or the last one was closed).
       security: [{ bearer: [] }]
       responses:
         "200":
-          description: The customer's cart.
+          description: The customer's existing cart.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CartResponse" }
+        "201":
+          description: No open cart existed; an empty one was created.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/CartResponse" }
@@ -39,8 +49,12 @@ paths:
       operationId: mergeGuestCart
       description: >
         Moves a guest cart's lines into the caller's cart and deletes the guest cart. Quantities of the same SKU are
-        added, capped at 99. The guest coupon is kept only when the customer cart has none. Merging an unknown or
-        already merged guest cart is a no-op, so the BFF can retry.
+        added, capped at 99. The guest coupon is kept only when the customer cart has none. A cart holds at most 50
+        lines: guest SKUs new to the customer cart are added in the guest cart's order until it has 50; the rest are
+        not added and are listed in meta.droppedSkus so the storefront can tell the customer. Merging an unknown or
+        already merged guest cart is a no-op (droppedSkus empty), so the BFF can retry. When the customer cart is
+        locked by a checkout, nothing changes (the guest cart is kept) and the answer is 409; the BFF keeps the guest
+        cart id and retries on a later request.
       security: [{ bearer: [] }]
       requestBody:
         required: true
@@ -56,8 +70,21 @@ paths:
           description: The customer's cart after the merge.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/CartResponse" }
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { $ref: "#/components/schemas/Cart" }
+                  meta:
+                    type: object
+                    required: [droppedSkus]
+                    properties:
+                      droppedSkus:
+                        type: array
+                        items: { type: string }
+                        description: Guest SKUs not added because the cart reached 50 lines; empty when everything fit.
         "401": { description: Missing or invalid access token }
+        "409": { $ref: "#/components/responses/CartLocked" }
   /api/carts/{cartId}:
     get:
       operationId: getCart
@@ -95,6 +122,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/CartResponse" }
         "404": { description: Unknown cart, or not the owner's }
+        "409": { $ref: "#/components/responses/CartLocked" }
         "422":
           description: >
             Validation failed. errors.sku is set when the SKU is unknown or not for sale (inactive variant or
@@ -112,6 +140,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/CartResponse" }
         "404": { description: Unknown cart, or not the owner's }
+        "409": { $ref: "#/components/responses/CartLocked" }
   /api/carts/{cartId}/coupon:
     put:
       operationId: setCartCoupon
@@ -135,6 +164,7 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/CartResponse" }
         "404": { description: Unknown cart, or not the owner's }
+        "409": { $ref: "#/components/responses/CartLocked" }
         "422": { description: Validation failed }
     delete:
       operationId: removeCartCoupon
@@ -148,12 +178,47 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/CartResponse" }
         "404": { description: Unknown cart, or not the owner's }
+        "409": { $ref: "#/components/responses/CartLocked" }
   /api/carts/{cartId}/snapshot:
+    post:
+      operationId: takeCartSnapshot
+      description: >
+        Step 1 of a checkout: returns the snapshot (as GET does) and locks the cart for checkoutId in the same
+        transaction. Idempotent per checkoutId: the same checkoutId keeps the lock and gets a fresh snapshot. An empty
+        cart is locked too and answered 200 with no lines; checkout then answers 422 and unlocks it. Guest carts are
+        404 (guests cannot check out).
+      parameters:
+        - $ref: "#/components/parameters/CartId"
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [checkoutId]
+              properties:
+                checkoutId: { type: string, maxLength: 26 }
+      responses:
+        "200":
+          description: The snapshot; the cart is now locked by checkoutId.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/CartSnapshot" }
+        "401": { description: Missing or invalid access token }
+        "404": { description: Unknown or closed cart, a guest cart, or not the caller's }
+        "409": { $ref: "#/components/responses/CartLocked" }
+        "422": { description: Validation failed }
     get:
       operationId: getCartSnapshot
+      deprecated: true
       description: >
-        Checkout's copy of a customer cart: SKUs, quantities, display names, coupon and version. Read-only. Guest
-        carts are 404 (guests cannot check out).
+        Checkout's copy of a customer cart: SKUs, quantities, display names, coupon and version. Read-only and takes
+        no lock; checkout uses POST since the cart lock. Guest carts are 404 (guests cannot check out).
       parameters:
         - $ref: "#/components/parameters/CartId"
       security: [{ bearer: [] }]
@@ -173,9 +238,10 @@ paths:
     post:
       operationId: markCartCheckedOut
       description: >
-        Called by checkout after the order is placed. Closes the cart and records cart.cart-checked-out with the
-        given lines (the snapshot's). Idempotent per checkoutId: repeating it returns 200 without a second event.
-        Lines added after the snapshot are dropped with the cart.
+        Called by checkout after the order is placed. Closes the cart (which ends its lock) and records
+        cart.cart-checked-out with the given lines (the snapshot's). Idempotent per checkoutId: repeating it returns
+        200 with the same body and no second event. The cart is locked from the snapshot on, so no line can have been
+        added after it.
       parameters:
         - $ref: "#/components/parameters/CartId"
       requestBody:
@@ -186,8 +252,8 @@ paths:
               type: object
               required: [checkoutId, orderId, lines]
               properties:
-                checkoutId: { type: string }
-                orderId: { type: string }
+                checkoutId: { type: string, maxLength: 26 }
+                orderId: { type: string, maxLength: 26 }
                 lines:
                   type: array
                   minItems: 1
@@ -199,13 +265,70 @@ paths:
                       sku: { type: string, maxLength: 64 }
                       quantity: { type: integer, minimum: 1, maximum: 99 }
       responses:
-        "200": { description: Closed, now or by an earlier call with the same checkoutId }
+        "200":
+          description: Closed, now or by an earlier call with the same checkoutId.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [cartId, checkoutId, orderId, closedAt]
+                    properties:
+                      cartId: { type: string }
+                      checkoutId: { type: string }
+                      orderId: { type: string }
+                      closedAt: { type: string, format: date-time }
         "404": { description: Unknown cart }
-        "409": { description: Already closed by a different checkout }
+        "409": { description: Already closed by, or locked by, a different checkout }
+        "422": { description: Validation failed }
+  /internal/carts/{cartId}/unlock:
+    post:
+      operationId: unlockCart
+      description: >
+        Called by checkout when a checkout that took the lock fails (when it records checkout.failed) or is answered
+        422 after the snapshot. Removes the lock so the customer can edit the cart again. Idempotent: unlocking a cart
+        that is not locked, or is locked by another checkout, changes nothing and returns 200 with the current lock.
+        Cluster-only, no JWT, like checked-out.
+      parameters:
+        - $ref: "#/components/parameters/CartId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [checkoutId]
+              properties:
+                checkoutId: { type: string, maxLength: 26 }
+      responses:
+        "200":
+          description: The cart's lock after the call.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [cartId, lockedByCheckoutId]
+                    properties:
+                      cartId: { type: string }
+                      lockedByCheckoutId: { type: [string, "null"], description: Null once unlocked. }
+        "404": { description: Unknown or closed cart }
         "422": { description: Validation failed }
 components:
   securitySchemes:
     bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  responses:
+    CartLocked:
+      description: The cart is locked by a checkout in progress; nothing changed.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/CartLockedError" }
   parameters:
     CartId:
       name: cartId
@@ -213,6 +336,13 @@ components:
       required: true
       schema: { type: string }
   schemas:
+    CartLockedError:
+      type: object
+      required: [message, code, checkoutId]
+      properties:
+        message: { type: string, description: e.g. "This cart is being checked out." }
+        code: { type: string, const: cart_locked }
+        checkoutId: { type: string, description: The checkout holding the lock. }
     CartResponse:
       type: object
       required: [data]
@@ -230,6 +360,9 @@ components:
           description: In the order the SKUs were first added.
           items: { $ref: "#/components/schemas/CartLine" }
         updatedAt: { type: string, format: date-time }
+        lockedByCheckoutId:
+          type: [string, "null"]
+          description: The checkout that locked the cart; while set, every change is 409 cart_locked.
     CartSnapshot:
       type: object
       required: [cartId, customerId, version, couponCode, lines, takenAt]

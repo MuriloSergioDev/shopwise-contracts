@@ -38,8 +38,9 @@ paths:
         Prices a list of lines and an optional coupon with current prices. Read-only: nothing is stored and no
         coupon is redeemed. A line whose SKU has no price is returned with null amounts and does not count toward
         the subtotal. An invalid coupon does not fail the request: it comes back with valid=false and a reason.
-        With the customer's access token the coupon's redemption limits are checked too (already_redeemed,
-        exhausted); checkout always sends it.
+        exhausted (maxRedemptions reached across all customers) is checked on every quote, with or without a token.
+        already_redeemed (maxRedemptionsPerCustomer reached) needs to know the customer, so it is checked only with
+        the customer's access token; checkout always sends it. When both apply, already_redeemed is reported.
       security: [{}, { bearer: [] }]
       requestBody:
         required: true
@@ -203,8 +204,8 @@ components:
         minSubtotal: { type: integer, minimum: 0, description: Minor units the subtotal must reach. }
         startsAt: { type: [string, "null"], format: date-time }
         endsAt: { type: [string, "null"], format: date-time }
-        maxRedemptions: { type: [integer, "null"], minimum: 1, description: Total uses across customers; null = unlimited. }
-        maxRedemptionsPerCustomer: { type: [integer, "null"], minimum: 1, description: Uses per customer; null = unlimited. }
+        maxRedemptions: { type: [integer, "null"], minimum: 1, description: "Total uses across customers; null = unlimited. Reaching it makes quotes answer exhausted." }
+        maxRedemptionsPerCustomer: { type: [integer, "null"], minimum: 1, description: "Uses per customer; null = unlimited. Reaching it makes quotes with that customer's token answer already_redeemed." }
     Coupon:
       allOf:
         - $ref: "#/components/schemas/CouponInput"
@@ -253,5 +254,8 @@ components:
                 reason:
                   type: [string, "null"]
                   enum: [unknown, not_started, expired, min_subtotal_not_met, already_redeemed, exhausted, null]
-                  description: Why the coupon was not applied; null when valid.
+                  description: >
+                    Why the coupon was not applied; null when valid. Checked in this order, first match wins: unknown,
+                    not_started, expired, min_subtotal_not_met, already_redeemed (only with a token), exhausted (any
+                    caller).
                 description: { type: [string, "null"] }

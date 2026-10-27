@@ -10,10 +10,12 @@ export type { ReservationFailedV1 as InventoryReservationFailedV1 } from './even
 export type { ReservationReleasedV1 as InventoryReservationReleasedV1 } from './events/inventory/reservation-released.v1';
 export type { StockLevelChangedV1 as InventoryStockLevelChangedV1 } from './events/inventory/stock-level-changed.v1';
 export type { StockReservedV1 as InventoryStockReservedV1 } from './events/inventory/stock-reserved.v1';
+export type { OrderCancelledV1 as OrdersOrderCancelledV1 } from './events/orders/order-cancelled.v1';
 export type { OrderPlacedV1 as OrdersOrderPlacedV1 } from './events/orders/order-placed.v1';
 export type { OrderRejectedV1 as OrdersOrderRejectedV1 } from './events/orders/order-rejected.v1';
 export type { OrderShippedV1 as OrdersOrderShippedV1 } from './events/orders/order-shipped.v1';
 export type { PaymentFailedV1 as PaymentsPaymentFailedV1 } from './events/payments/payment-failed.v1';
+export type { PaymentRequiresActionV1 as PaymentsPaymentRequiresActionV1 } from './events/payments/payment-requires-action.v1';
 export type { PaymentSucceededV1 as PaymentsPaymentSucceededV1 } from './events/payments/payment-succeeded.v1';
 export type { RefundedV1 as PaymentsRefundedV1 } from './events/payments/refunded.v1';
 export type { PingedV1 as PlatformPingedV1 } from './events/platform/pinged.v1';
@@ -21,6 +23,7 @@ export type { PriceChangedV1 as PricingPriceChangedV1 } from './events/pricing/p
 export type { CommitReservationV1 as InventoryCommitReservationV1 } from './commands/inventory/commit-reservation.v1';
 export type { ReleaseReservationV1 as InventoryReleaseReservationV1 } from './commands/inventory/release-reservation.v1';
 export type { ReserveStockV1 as InventoryReserveStockV1 } from './commands/inventory/reserve-stock.v1';
+export type { CancelOrderV1 as OrdersCancelOrderV1 } from './commands/orders/cancel-order.v1';
 export type { PlaceOrderV1 as OrdersPlaceOrderV1 } from './commands/orders/place-order.v1';
 export type { RefundPaymentV1 as PaymentsRefundPaymentV1 } from './commands/payments/refund-payment.v1';
 export type { RequestPaymentV1 as PaymentsRequestPaymentV1 } from './commands/payments/request-payment.v1';

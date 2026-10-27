@@ -26,7 +26,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Prices a list of lines and an optional coupon with current prices. Read-only: nothing is stored and no coupon is redeemed. A line whose SKU has no price is returned with null amounts and does not count toward the subtotal. An invalid coupon does not fail the request: it comes back with valid=false and a reason. With the customer's access token the coupon's redemption limits are checked too (already_redeemed, exhausted); checkout always sends it. */
+        /** @description Prices a list of lines and an optional coupon with current prices. Read-only: nothing is stored and no coupon is redeemed. A line whose SKU has no price is returned with null amounts and does not count toward the subtotal. An invalid coupon does not fail the request: it comes back with valid=false and a reason. exhausted (maxRedemptions reached across all customers) is checked on every quote, with or without a token. already_redeemed (maxRedemptionsPerCustomer reached) needs to know the customer, so it is checked only with the customer's access token; checkout always sends it. When both apply, already_redeemed is reported. */
         post: operations["createQuote"];
         delete?: never;
         options?: never;
@@ -125,9 +125,9 @@ export interface components {
             startsAt?: string | null;
             /** Format: date-time */
             endsAt?: string | null;
-            /** @description Total uses across customers; null = unlimited. */
+            /** @description Total uses across customers; null = unlimited. Reaching it makes quotes answer exhausted. */
             maxRedemptions?: number | null;
-            /** @description Uses per customer; null = unlimited. */
+            /** @description Uses per customer; null = unlimited. Reaching it makes quotes with that customer's token answer already_redeemed. */
             maxRedemptionsPerCustomer?: number | null;
         };
         Coupon: components["schemas"]["CouponInput"] & {
@@ -165,7 +165,7 @@ export interface components {
                 code: string;
                 valid: boolean;
                 /**
-                 * @description Why the coupon was not applied; null when valid.
+                 * @description Why the coupon was not applied; null when valid. Checked in this order, first match wins: unknown, not_started, expired, min_subtotal_not_met, already_redeemed (only with a token), exhausted (any caller).
                  * @enum {string|null}
                  */
                 reason: "unknown" | "not_started" | "expired" | "min_subtotal_not_met" | "already_redeemed" | "exhausted" | null;
