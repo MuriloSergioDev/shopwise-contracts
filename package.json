@@ -1,12 +1,19 @@
 {
   "name": "@shopwise/contracts",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "Shopwise event schemas and HTTP API contracts, with generated TypeScript types.",
   "packageManager": "pnpm@12.15.0",
-  "exports": { ".": "./ts/index.ts" },
-  "files": ["ts", "schemas", "openapi", "asyncapi.yaml"],
+  "exports": {
+    ".": "./ts/index.ts"
+  },
+  "files": [
+    "ts",
+    "schemas",
+    "openapi",
+    "asyncapi.yaml"
+  ],
   "scripts": {
     "generate": "node scripts/generate.mjs",
     "check": "node scripts/validate.mjs && pnpm generate && git diff --exit-code -- php ts && tsc --noEmit",
@@ -25,5 +32,9 @@
     "typescript": "^5.9.3",
     "yaml": "^2.9.1"
   },
-  "commitlint": { "extends": ["@commitlint/config-conventional"] }
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  }
 }
