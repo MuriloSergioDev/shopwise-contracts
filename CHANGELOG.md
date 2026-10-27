@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/MuriloSergioDev/shopwise-contracts/compare/v1.0.0...v1.1.0) (2026-10-27)
+
+
+### Features
+
+* close the open P3/P4 contract gaps ([3c662c9](https://github.com/MuriloSergioDev/shopwise-contracts/commit/3c662c95f0faaf3451a457f50f29b81449373afd))
+
 ## 1.0.0 (2026-10-27)
 
 
