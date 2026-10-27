@@ -25,7 +25,7 @@ final readonly class CompletedV1
         public int $subtotal,
         public int $discount,
         public int $total,
-        public string $couponCode,
+        public ?string $couponCode,
         public string $completedAt,
     ) {}
 

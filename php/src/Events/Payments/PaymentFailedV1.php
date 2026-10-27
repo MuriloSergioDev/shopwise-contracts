@@ -16,14 +16,14 @@ final readonly class PaymentFailedV1
     public const string SCHEMA = 'payments/payment-failed.v1';
 
     public function __construct(
-        public string $paymentId,
+        public ?string $paymentId,
         public string $checkoutId,
         public string $customerId,
         public int $amount,
         public string $currency,
         public string $reason,
-        public string $message,
-        public string $stripePaymentIntentId,
+        public ?string $message,
+        public ?string $stripePaymentIntentId,
         public string $failedAt,
     ) {}
 

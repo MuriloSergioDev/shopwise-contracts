@@ -24,7 +24,7 @@ final readonly class PlaceOrderV1
         public int $subtotal,
         public int $discount,
         public int $total,
-        public string $couponCode,
+        public ?string $couponCode,
         public string $paymentId,
         public array $shippingAddress,
         public string $requestedAt,

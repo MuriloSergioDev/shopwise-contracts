@@ -10,6 +10,7 @@
   "scripts": {
     "generate": "node scripts/generate.mjs",
     "check": "node scripts/validate.mjs && pnpm generate && git diff --exit-code -- php ts && tsc --noEmit",
+    "roundtrip": "docker run --rm -v .:/app -w /app shopwise-php:base php scripts/roundtrip.php",
     "compat": "node scripts/compat.mjs",
     "prepare": "lefthook install"
   },

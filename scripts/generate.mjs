@@ -34,9 +34,15 @@ export function eventSchemas() {
   );
 }
 
+// A property is nullable when null is one of its types (`type: [x, null]`) or a oneOf/anyOf branch.
+const branches = (prop) => prop.oneOf ?? prop.anyOf ?? [prop];
+const types = (prop) => branches(prop).flatMap((b) => (Array.isArray(b.type) ? b.type : b.type ? [b.type] : []));
+export const nullable = (prop) => types(prop).includes('null') || branches(prop).some((b) => b.const === null);
+
 const phpType = (prop) => {
-  const t = Array.isArray(prop.type) ? prop.type.find((x) => x !== 'null') : prop.type;
-  return { string: 'string', integer: 'int', number: 'float', boolean: 'bool', array: 'array', object: 'array' }[t] ?? 'mixed';
+  const t = [...new Set(types(prop).filter((x) => x !== 'null'))];
+  if (t.length !== 1) return 'mixed';
+  return { string: 'string', integer: 'int', number: 'float', boolean: 'bool', array: 'array', object: 'array' }[t[0]] ?? 'mixed';
 };
 
 function phpClass(ev) {
@@ -48,11 +54,25 @@ function phpClass(ev) {
   const ctor = ordered
     .map(([k, p]) => {
       const opt = !required.has(k);
-      return `        public ${opt ? '?' : ''}${phpType(p)} $${k}${opt ? ' = null' : ''},`;
+      const type = phpType(p);
+      const q = type !== 'mixed' && (opt || nullable(p)) ? '?' : '';
+      return `        public ${q}${type} $${k}${opt ? ' = null' : ''},`;
     })
     .join('\n');
   const from = ordered.map(([k]) => `            ${k}: $data['${k}']${required.has(k) ? '' : ' ?? null'},`).join('\n');
-  const to = props.map(([k]) => `            '${k}' => $this->${k},`).join('\n');
+  // An optional property that cannot be null is left out when unset, so the array still matches the schema.
+  const omit = (k, p) => !required.has(k) && !nullable(p);
+  const to = props
+    .filter(([k, p]) => !omit(k, p))
+    .map(([k]) => `            '${k}' => $this->${k},`)
+    .join('\n');
+  const toOptional = props
+    .filter(([k, p]) => omit(k, p))
+    .map(([k]) => `        if ($this->${k} !== null) {\n            $data['${k}'] = $this->${k};\n        }\n`)
+    .join('');
+  const toBody = toOptional
+    ? `        $data = [\n${to}\n        ];\n${toOptional}\n        return $data;`
+    : `        return [\n${to}\n        ];`;
   return `<?php
 
 declare(strict_types=1);
@@ -85,9 +105,7 @@ ${from}
     /** @return array<string, mixed> */
     public function toArray(): array
     {
-        return [
-${to}
-        ];
+${toBody}
     }
 }
 `;

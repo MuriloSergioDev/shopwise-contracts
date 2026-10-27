@@ -26,7 +26,7 @@ final readonly class OrderPlacedV1
         public int $subtotal,
         public int $discount,
         public int $total,
-        public string $couponCode,
+        public ?string $couponCode,
         public array $shippingAddress,
         public string $placedAt,
     ) {}

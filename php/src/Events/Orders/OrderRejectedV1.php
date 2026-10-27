@@ -18,7 +18,7 @@ final readonly class OrderRejectedV1
     public function __construct(
         public string $checkoutId,
         public string $reason,
-        public string $message,
+        public ?string $message,
         public string $rejectedAt,
     ) {}
 

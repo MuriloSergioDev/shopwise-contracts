@@ -13,6 +13,13 @@ jobs:
     uses: MuriloSergioDev/shopwise-platform/.github/workflows/nuxt-ci.yml@main
     with: { build: false }
 
+  roundtrip:
+    runs-on: ubuntu-latest
+    container: php:8.5-cli
+    steps:
+      - uses: actions/checkout@v7
+      - run: php scripts/roundtrip.php
+
   compat:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest

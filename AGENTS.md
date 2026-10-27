@@ -18,4 +18,4 @@ Consumers install it as `shopwise/contracts` (Composer, VCS) and `@shopwise/cont
 - Edit sources only; regenerate instead of editing `php/` or `ts/`.
 
 ## Commands
-`pnpm check` (validate + regenerate + no-diff + typecheck), `pnpm compat` (needs Apicurio: Tilt port-forward 8081 or `REGISTRY_URL`).
+`pnpm check` (validate + regenerate + no-diff + typecheck), `pnpm roundtrip` (every example, plus each nullable field as null, through its PHP DTO; docker `shopwise-php:base`, CI uses `php:8.5-cli`), `pnpm compat` (needs Apicurio: Tilt port-forward 8081 or `REGISTRY_URL`).

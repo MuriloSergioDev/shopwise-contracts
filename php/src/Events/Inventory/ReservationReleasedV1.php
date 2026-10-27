@@ -16,7 +16,7 @@ final readonly class ReservationReleasedV1
     public const string SCHEMA = 'inventory/reservation-released.v1';
 
     public function __construct(
-        public string $reservationId,
+        public ?string $reservationId,
         public string $checkoutId,
         public string $reason,
         public array $lines,
